@@ -1,89 +1,82 @@
-from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
-from transformers.agents import TransformersEngine, CodeAgent, ManagedAgent, ReactCodeAgent
 from PIL import Image
-import requests
-from io import BytesIO
 
-# 1. Load multimodal models with image support
-# Router model (supports image+text classification)
-router_model_id = "vikhyatk/moondream2"  # Lightweight vision-language model
-router_tokenizer = AutoTokenizer.from_pretrained(router_model_id)
-router_model = AutoModelForCausalLM.from_pretrained(router_model_id)
-router_pipeline = pipeline("image-to-text", model=router_model, tokenizer=router_tokenizer)
+import torch
+from smolagents import MultiStepAgent, CodeAgent, TransformersModel
 
-# Medical agent (specialized in medical image+text)
-medical_model_id = "llava-hf/llava-1.5-7b-hf"  # Replace with medical multimodal if available
-med_tokenizer = AutoTokenizer.from_pretrained(medical_model_id)
-med_model = AutoModelForCausalLM.from_pretrained(medical_model_id)
-med_pipeline = pipeline("image-to-text", model=med_model, tokenizer=med_tokenizer)
+# === Configuration ===
+MODELS = {
+    "router": "microsoft/Phi-3-mini-4k-instruct",
+    # "medical": "google/medgemma-4b-it",
+    "medical": "prithivMLmods/Radiology-Infer-Mini",
+    "general": "Qwen/Qwen1.5-0.5B"
+}
 
-# General QA agent (multimodal)
-general_model_id = "llava-hf/llava-1.5-7b-hf"
-general_tokenizer = AutoTokenizer.from_pretrained(general_model_id)
-general_model = AutoModelForCausalLM.from_pretrained(general_model_id)
-general_pipeline = pipeline("image-to-text", model=general_model, tokenizer=general_tokenizer)
+# === Model Initialization ===
+def create_smol_model(model_id):
+    return TransformersModel(
+        model_id=model_id,
+        device_map="auto",
+        load_in_4bit=True,
+        bnb_4bit_compute_dtype=torch.bfloat16
+    )
 
-# 2. Create engines with multimodal support
-class MultimodalEngine(TransformersEngine):
-    def __call__(self, inputs):
-        if isinstance(inputs, Image.Image):
-            return self.pipeline(inputs)
-        elif isinstance(inputs, str):
-            return self.pipeline(inputs)
-        elif isinstance(inputs, tuple):  # (text, image)
-            return self.pipeline(text=inputs[0], images=inputs[1])
-        else:
-            raise ValueError("Unsupported input type")
-
-# Initialize engines
-router_engine = MultimodalEngine(router_pipeline)
-med_engine = MultimodalEngine(med_pipeline)
-general_engine = MultimodalEngine(general_pipeline)
-
-# 3. Wrap agents with multimodal support
-med_agent = CodeAgent(tools=[], llm_engine=med_engine)
-general_agent = CodeAgent(tools=[], llm_engine=general_engine)
-
-managed_med_agent = ManagedAgent(
-    agent=med_agent,
-    name="medical_qa",
-    description="Handles medical questions with image inputs (X-rays, skin conditions, etc.)"
-)
-
-managed_general_agent = ManagedAgent(
-    agent=general_agent,
-    name="general_qa",
-    description="Handles general questions with image inputs"
-)
-
-# 4. Multimodal manager agent
-manager_agent = ReactCodeAgent(
+# === Agent Setup ===
+# Medical Agent (MedGemma)
+medical_agent = CodeAgent(
     tools=[],
-    llm_engine=router_engine,
-    managed_agents=[managed_med_agent, managed_general_agent]
+    model=create_smol_model(MODELS["medical"]),
+    name="medical_qa",
+    description="Handles medical questions with image analysis"
 )
 
-# 5. Unified query handler
+# General QA Agent
+general_agent = CodeAgent(
+    tools=[],
+    model=create_smol_model(MODELS["general"]),
+    name="general_qa",
+    description="Handles general knowledge questions"
+)
+
+# === Manager/Router Agent ===
+class RouterAgent(MultiStepAgent):
+    def initialize_system_prompt(self):
+        return """
+        You are a routing agent. Classify queries into:
+        - Medical: Symptoms, conditions, medications, health advice
+        - General: Non-medical questions, facts, explanations
+
+        Respond ONLY with:
+        - "medical_qa" for medical queries
+        - "general_qa" for general queries
+        """
+
+manager_agent = RouterAgent(
+    tools=[],
+    model=create_smol_model(MODELS["router"]),
+    managed_agents=[medical_agent, general_agent],
+    name="router",
+    description="Routes queries to appropriate domain agents"
+)
+
+# === Unified Query Processor ===
 def process_query(input_data):
     """
-    Handles all input types:
-    - Text string: "What's in this image?"
+    Handles:
+    - Text: "What are symptoms of pneumonia?"
     - Image: PIL.Image object
-    - Tuple: (text, image)
+    - Multimodal: (text, image)
     """
-    return manager_agent.run(input_data)
+    return manager_agent.run(task=str(input_data))
 
-# 6. Example usage
-# Text-only query
-text_response = process_query("What are symptoms of pneumonia?")
+# === Example Usage ===
+if __name__ == "__main__":
+    # Text-only medical query
+    print(process_query("What are symptoms of diabetes?"))
 
-# Image-only query
-image_url = "https://example.com/xray.jpg"
-image = Image.open(requests.get(image_url, stream=True).raw)
-image_response = process_query(image)
+    # Medical image analysis
+    from PIL import Image
+    xray_image = Image.open("chest_xray.png")
+    print(process_query(("Analyze this lung scan", xray_image)))
 
-# Multimodal query
-multimodal_response = process_query((
-    "What abnormalities are visible in this lung scan?",
-    Image.open(requests.get(image_url, stream=True).raw)
-))
+    # General knowledge query
+    print(process_query("Explain quantum computing in simple terms"))

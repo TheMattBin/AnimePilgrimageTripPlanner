@@ -1,26 +1,101 @@
-from smolagents import MultiStepAgent, CodeAgent, TransformersModel
-from transformers import AutoProcessor, AutoModelForCausalLM
+import re
+import datetime
+import requests
+from requests.exceptions import RequestException
+
+from markdownify import markdownify
 from PIL import Image
+
 import torch
 from smolagents import tool
+from smolagents import DuckDuckGoSearchTool, WebSearchTool
+from smolagents import CodeAgent, TransformersModel, ToolCallingAgent
+from datetime import datetime
 
+@tool
+def get_weather_api(location: str, date: str) -> str:
+    """
+    Get weather forecast for a given location and date (YYYY-MM-DD).
 
-# === Prompt Template ===
-new_prompt = """
-You are a routing agent. Classify queries into:
-- Medical: Symptoms, conditions, medications, health advice
-- General: Non-medical questions, facts, explanations
+    Args:
+    location: The location to check the weather.
+    date: The date in (YYYY-MM-DD) to check the weather.
 
-Respond ONLY with:
-- "medical_qa" for medical queries
-- "general_qa" for general queries
+    Returns:
+        The weather condition in the requested location.
+    """
+    # Validate date format
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        return "Invalid date format. Please use YYYY-MM-DD."
 
-Then, call the corresponding agent's run() method in Python code, e.g.:
-```py
-result = medical_agent.run(task)
-print(result)
-```
-"""
+    # Geocode location (example using OpenStreetMap Nominatim)
+    import requests
+    geo_resp = requests.get(
+        "https://nominatim.openstreetmap.org/search",
+        params={"q": location, "format": "json", "limit": 1},
+        headers={"User-Agent": "smolagents-example"}
+    )
+    geo_data = geo_resp.json()
+    if not geo_data:
+        return f"Could not find location: {location}"
+    lat, lon = geo_data[0]["lat"], geo_data[0]["lon"]
+
+    # Call Open-Meteo API for daily forecast
+    weather_resp = requests.get(
+        "https://api.open-meteo.com/v1/forecast",
+        params={
+            "latitude": lat,
+            "longitude": lon,
+            "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum",
+            "timezone": "auto",
+            "start_date": date,
+            "end_date": date,
+        }
+    )
+    weather_data = weather_resp.json()
+    daily = weather_data.get("daily")
+    if not daily:
+        return f"Could not get weather forecast for {location} on {date}."
+
+    max_temp = daily["temperature_2m_max"][0]
+    min_temp = daily["temperature_2m_min"][0]
+    precipitation = daily["precipitation_sum"][0]
+
+    return (
+        f"Weather forecast for {location} on {date}: "
+        f"Max temp {max_temp}°C, Min temp {min_temp}°C, "
+        f"Precipitation {precipitation}mm."
+    )
+
+@tool
+def visit_webpage(url: str) -> str:
+    """Visits a webpage at the given URL and returns its content as a markdown string.
+
+    Args:
+        url: The URL of the webpage to visit.
+
+    Returns:
+        The content of the webpage converted to Markdown, or an error message if the request fails.
+    """
+    try:
+        # Send a GET request to the URL
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for bad status codes
+
+        # Convert the HTML content to Markdown
+        markdown_content = markdownify(response.text).strip()
+
+        # Remove multiple line breaks
+        markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content)
+
+        return markdown_content
+
+    except RequestException as e:
+        return f"Error fetching the webpage: {str(e)}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
 
 # === Configuration ===
 MODELS = {
@@ -36,82 +111,30 @@ def create_smol_model(model_id):
         model_id=model_id,
         device_map="auto",
         trust_remote_code=True,
-        # load_in_4bit=True,
-        # bnb_4bit_compute_dtype=torch.bfloat16
     )
 
-# === Agent Setup ===
-# Medical Agent (MedGemma)
-medical_agent = CodeAgent(
-    tools=[],
-    model=create_smol_model(MODELS["medical"]),
-    name="medical_qa",
-    description="Handles medical questions with image analysis"
+model = create_smol_model(MODELS["router"])
+
+
+# Weather agent
+weather_agent = ToolCallingAgent(tools=[get_weather_api], model=model, name="weather", description="Fetches weather data.")
+web_agent = ToolCallingAgent(
+    tools=[WebSearchTool(), visit_webpage],
+    model=model,
+    max_steps=10,
+    name="web_search_agent",
+    description="Runs web searches for you.",
 )
-
-# General QA Agent
-general_agent = CodeAgent(
-    tools=[],
-    model=create_smol_model(MODELS["general"]),
-    name="general_qa",
-    description="Handles general knowledge questions"
-)
-
-# === Manager/Router Agent ===
-# class RouterAgent(MultiStepAgent):
-#     def initialize_system_prompt(self):
-#         return """
-#         You are a routing agent. Classify queries into:
-#         - Medical: Symptoms, conditions, medications, health advice
-#         - General: Non-medical questions, facts, explanations
-
-#         Respond ONLY with:
-#         - "medical_qa" for medical queries
-#         - "general_qa" for general queries
-#         """
-
-@tool
-def get_weather_api(location: str, date_time: str) -> str:
-    """
-    Retrieves weather data for a given location and date.
-
-    Args:
-        location: City and country (e.g., "Paris, France").
-        date_time: Date in '%Y-%m-%d' format.
-    """
-    # Mock API call
-    return f"Weather in {location} on {date_time}: Sunny, 25°C."
 
 
 manager_agent = CodeAgent(
     tools=[],
-    model=create_smol_model(MODELS["router"]),
-    managed_agents=[medical_agent, general_agent],
-    name="router",
-    description="Routes queries to appropriate domain agents"
+    model=model,
+    managed_agents=[weather_agent, web_agent],
+    additional_authorized_imports=["time", "numpy", "pandas"],
 )
-
-manager_agent.prompt_templates["system_prompt"] = new_prompt
-
-# === Unified Query Processor ===
-def process_query(input_data):
-    """
-    Handles:
-    - Text: "What are symptoms of pneumonia?"
-    - Image: PIL.Image object
-    - Multimodal: (text, image)
-    """
-    return manager_agent.run(task=str(input_data))
 
 # === Example Usage ===
 if __name__ == "__main__":
-    # Text-only medical query
-    print(process_query("What are symptoms of diabetes?"))
-
-    # # Medical image analysis
-    # from PIL import Image
-    # xray_image = Image.open("chest_xray.png")
-    # print(process_query(("Analyze this lung scan", xray_image)))
-
-    # General knowledge query
-    # print(process_query("Explain quantum computing in simple terms"))
+    result = manager_agent.run("Plan a surf trip in Bali next week.")
+    print(result)

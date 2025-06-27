@@ -99,7 +99,7 @@ def visit_webpage(url: str) -> str:
 
 # === Configuration ===
 MODELS = {
-    "router": "Qwen/Qwen3-0.6B",
+    "router": "unsloth/Qwen3-4B-bnb-4bit",
     # "medical": "google/medgemma-4b-it",
     "medical": "moondream/moondream-2b-2025-04-14-4bit",
     "general": "Qwen/Qwen3-0.6B"
@@ -111,6 +111,7 @@ def create_smol_model(model_id):
         model_id=model_id,
         device_map="auto",
         trust_remote_code=True,
+        # load_in_4bit=True,
     )
 
 model = create_smol_model(MODELS["router"])

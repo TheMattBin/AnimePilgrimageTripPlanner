@@ -1,3 +1,10 @@
 smolagents[toolkit]
 transformers
 Pillow
+backoff
+bitsandbytes
+accelerate
+soundfile
+scipy
+sentencepiece
+protobuf

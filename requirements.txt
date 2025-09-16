@@ -1,4 +1,8 @@
-smolagents[toolkit]
+langgraph
+langchain
+langchain-core
+langchain-openai
+langchain-community
 transformers
 Pillow
 backoff
@@ -8,3 +12,8 @@ soundfile
 scipy
 sentencepiece
 protobuf
+requests
+markdownify
+torch
+numpy
+pandas

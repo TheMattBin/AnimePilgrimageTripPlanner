@@ -2,22 +2,11 @@ from typing import Dict, List, Optional
 import requests
 import json
 from datetime import datetime, timedelta
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.tools import tool
-from langchain_community.llms import HuggingFaceEndpoint
-from config import Config
+from core.config import Config
 
 class FlightAgent:
     def __init__(self):
-        self.llm = HuggingFaceEndpoint(
-            repo_id=Config.HUGGINGFACE_MODEL_NAME,
-            task="text-generation",
-            max_length=1000,
-            temperature=0.7,
-        )
         self.api_key = Config.FLIGHT_API_KEY
-
-    @tool
     def search_flights(self, origin: str, destination: str, departure_date: str,
                       return_date: Optional[str] = None, passengers: int = 1) -> Dict:
         """

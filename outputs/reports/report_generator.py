@@ -21,8 +21,8 @@ from reportlab.lib import colors
 import base64
 from io import BytesIO
 import folium
-from enhanced_map_agent import EnhancedMapAgent
-from config import Config
+from agents.maps.enhanced import EnhancedMapAgent
+from core.config import Config
 
 
 class ReportGenerator:
@@ -89,7 +89,7 @@ class ReportGenerator:
         output_files = {}
 
         # Generate enhanced map data first
-        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Slam Dunk")
+        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Anime Pilgrimage")
         destination = trip_data.get("parsed_data", {}).get("destination", "Japan")
         duration = trip_data.get("parsed_data", {}).get("duration", 7)
 
@@ -117,7 +117,7 @@ class ReportGenerator:
     def generate_markdown_report(self, trip_data: Dict[str, Any], base_filename: str) -> str:
         """Generate detailed Markdown report"""
 
-        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Slam Dunk")
+        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Anime Pilgrimage")
         destination = trip_data.get("parsed_data", {}).get("destination", "Japan")
         duration = trip_data.get("parsed_data", {}).get("duration", 7)
 
@@ -133,7 +133,7 @@ class ReportGenerator:
     def create_markdown_template(self, trip_data: Dict[str, Any]) -> str:
         """Create comprehensive Markdown template"""
 
-        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Slam Dunk")
+        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Anime Pilgrimage")
         destination = trip_data.get("parsed_data", {}).get("destination", "Japan")
         duration = trip_data.get("parsed_data", {}).get("duration", 7)
         departure_date = trip_data.get("parsed_data", {}).get("departure_date", "2024-12-01")
@@ -327,7 +327,7 @@ This comprehensive report details your {duration}-day anime pilgrimage journey t
 
     def _generate_markdown_episode_guide(self, trip_data: Dict[str, Any]) -> str:
         """Generate episode guide with photo opportunities"""
-        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Slam Dunk")
+        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Anime Pilgrimage")
 
         episode_guides = {
             "Slam Dunk": {
@@ -447,7 +447,7 @@ The interactive map provides detailed statistics including:
         story = []
 
         # Title
-        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Slam Dunk")
+        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Anime Pilgrimage")
         title = Paragraph(f"{anime_theme} Anime Pilgrimage Trip Report", self.styles['CustomTitle'])
         story.append(title)
         story.append(Spacer(1, 20))
@@ -494,7 +494,7 @@ The interactive map provides detailed statistics including:
 
     def _create_pdf_overview(self, trip_data: Dict[str, Any]) -> str:
         """Create PDF overview section"""
-        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Slam Dunk")
+        anime_theme = trip_data.get("parsed_data", {}).get("anime_theme", "Anime Pilgrimage")
         destination = trip_data.get("parsed_data", {}).get("destination", "Japan")
         duration = trip_data.get("parsed_data", {}).get("duration", 7)
         departure_date = trip_data.get("parsed_data", {}).get("departure_date", "2024-12-01")

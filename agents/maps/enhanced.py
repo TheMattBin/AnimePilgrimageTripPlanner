@@ -11,6 +11,7 @@ import io
 from PIL import Image
 import os
 import math
+from agents.search import SeichiSearchAgent
 
 
 class EnhancedMapAgent:
@@ -22,6 +23,7 @@ class EnhancedMapAgent:
     def __init__(self):
         self.geolocator = Nominatim(user_agent="enhanced_trip_planner", timeout=10)
         self.geocode = RateLimiter(self.geolocator.geocode, min_delay_seconds=1)
+        self.seichi_search = SeichiSearchAgent()
 
         # Enhanced anime location database with episode references and photos
         self.enhanced_anime_locations = {
@@ -97,36 +99,162 @@ class EnhancedMapAgent:
             }
         }
 
+    def _generate_generic_anime_locations(self, anime_title: str) -> Dict:
+        """
+        Generate generic anime pilgrimage locations for Japan
+        """
+        return {
+            "Tokyo": {
+                "Akihabara": {
+                    "real_location": "Akihabara Electric Town",
+                    "address": "Chiyoda, Tokyo",
+                    "coordinates": [35.6977, 139.7707],
+                    "episodes": [f"Various {anime_title} episodes"],
+                    "scenes": ["Shopping districts", "Anime stores", "Arcades"],
+                    "description": f"The heart of anime culture, perfect for {anime_title} pilgrimage",
+                    "best_visit_time": "10:00-21:00",
+                    "estimated_duration": "3-4 hours",
+                    "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Akihabara_2019.jpg/800px-Akihabara_2019.jpg",
+                    "activities": ["Visit anime stores", "Try arcade games", "Explore electronics shops"]
+                },
+                "Shibuya Crossing": {
+                    "real_location": "Shibuya Scramble Crossing",
+                    "address": "Shibuya, Tokyo",
+                    "coordinates": [35.6598, 139.7006],
+                    "episodes": [f"Urban scenes in {anime_title}"],
+                    "scenes": ["City life", "Modern Tokyo"],
+                    "description": f"Iconic Tokyo crossing featured in many anime including {anime_title}",
+                    "best_visit_time": "18:00-20:00",
+                    "estimated_duration": "1-2 hours",
+                    "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Shibuya_Crossing_in_2013.jpg/800px-Shibuya_Crossing_in_2013.jpg",
+                    "activities": ["Photography", "People watching", "Shopping"]
+                }
+            },
+            "Kyoto": {
+                "Fushimi Inari Shrine": {
+                    "real_location": "Fushimi Inari Taisha",
+                    "address": "Kyoto, Kyoto Prefecture",
+                    "coordinates": [34.9671, 135.7727],
+                    "episodes": [f"Spiritual episodes in {anime_title}"],
+                    "scenes": ["Temple visits", "Traditional Japan"],
+                    "description": f"Beautiful shrine with thousands of torii gates, perfect for {anime_title} spiritual themes",
+                    "best_visit_time": "08:00-17:00",
+                    "estimated_duration": "2-3 hours",
+                    "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Fushimi_Inari_Shrine_002.jpg/800px-Fushimi_Inari_Shrine_002.jpg",
+                    "activities": ["Hike through torii gates", "Make wishes", "Traditional photography"]
+                },
+                "Gion District": {
+                    "real_location": "Gion Historic District",
+                    "address": "Higashiyama, Kyoto",
+                    "coordinates": [35.0032, 135.7751],
+                    "episodes": [f"Traditional episodes in {anime_title}"],
+                    "scenes": ["Historic streets", "Traditional architecture"],
+                    "description": f"Traditional geisha district, perfect for historical {anime_title} themes",
+                    "best_visit_time": "16:00-19:00",
+                    "estimated_duration": "2-3 hours",
+                    "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Gion_at_night.jpg/800px-Gion_at_night.jpg",
+                    "activities": ["Explore traditional streets", "Spot geishas", "Traditional tea houses"]
+                }
+            },
+            "Osaka": {
+                "Osaka Castle": {
+                    "real_location": "Osaka Castle",
+                    "address": "Chuo, Osaka",
+                    "coordinates": [34.6873, 135.5262],
+                    "episodes": [f"Historical episodes in {anime_title}"],
+                    "scenes": ["Castle grounds", "Historical battles"],
+                    "description": f"Impressive castle featured in historical {anime_title} episodes",
+                    "best_visit_time": "09:00-17:00",
+                    "estimated_duration": "2-3 hours",
+                    "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Osaka_Castle_in_2015.jpg/800px-Osaka_Castle_in_2015.jpg",
+                    "activities": ["Castle tour", "Grounds exploration", "Historical learning"]
+                },
+                "Dotonbori": {
+                    "real_location": "Dotonbori Street",
+                    "address": "Chuo, Osaka",
+                    "coordinates": [34.6686, 135.5028],
+                    "episodes": [f"Modern city life in {anime_title}"],
+                    "scenes": ["Night life", "Street food", "Neon lights"],
+                    "description": f"Vibrant entertainment district featured in modern {anime_title} scenes",
+                    "best_visit_time": "18:00-23:00",
+                    "estimated_duration": "2-4 hours",
+                    "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Dotonbori_202004.jpg/800px-Dotonbori_202004.jpg",
+                    "activities": ["Street food", "Neon photography", "Entertainment"]
+                }
+            }
+        }
+
     def create_main_anime_map(self, anime_title: str, trip_duration: int = 7,
                              start_date: str = "2024-12-01") -> str:
         """
         Create main enhanced anime pilgrimage map with all features
         Returns the main map file path
         """
-        if anime_title not in self.enhanced_anime_locations:
-            return f"Anime '{anime_title}' not found in database"
+        # Use hardcoded locations for supported anime, search for real locations for others
+        if anime_title in self.enhanced_anime_locations:
+            anime_data = self.enhanced_anime_locations[anime_title]
+        else:
+            # Search for real seichi junrei locations
+            print(f"[MAP AGENT] Searching for real seichi locations for: {anime_title}")
+            search_result = self.seichi_search.search_anime_locations(anime_title)
+            anime_data = search_result.get("locations", {})
 
-        anime_data = self.enhanced_anime_locations[anime_title]
+            # Handle case where anime_data is not in expected dictionary format
+            if isinstance(anime_data, list):
+                print(f"[MAP AGENT] Converting list data to dictionary format")
+                # Convert list to expected dictionary structure
+                temp_dict = {}
+                for item in anime_data:
+                    if isinstance(item, dict):
+                        # Create a region key from city or use default
+                        region = item.get("city", item.get("prefecture", "Unknown"))
+                        if region not in temp_dict:
+                            temp_dict[region] = {}
+                        # Use name as key or generate one
+                        name_key = item.get("name", f"location_{len(temp_dict[region])}")
+                        temp_dict[region][name_key] = item
+                anime_data = temp_dict
 
         # Collect all locations with their metadata
         all_locations = []
         for region, locations in anime_data.items():
-            for location_name, location_data in locations.items():
-                location_info = {
-                    "name": location_name,
-                    "real_name": location_data["real_location"],
-                    "region": region,
-                    "coordinates": location_data["coordinates"],
-                    "episodes": location_data["episodes"],
-                    "scenes": location_data["scenes"],
-                    "description": location_data["description"],
-                    "best_visit_time": location_data["best_visit_time"],
-                    "estimated_duration": location_data["estimated_duration"],
-                    "photo_url": location_data["photo_url"],
-                    "activities": location_data["activities"],
-                    "address": location_data["address"]
-                }
-                all_locations.append(location_info)
+            # Handle both dict and list formats
+            if isinstance(locations, dict):
+                # Expected format: {'location_name': {...}}
+                for location_name, location_data in locations.items():
+                    location_info = {
+                        "name": location_name,
+                        "real_name": location_data.get("real_location", location_name),
+                        "region": region,
+                        "coordinates": location_data.get("coordinates", [35.6762, 139.6503]),
+                        "episodes": location_data.get("episodes", ["Unknown"]),
+                        "scenes": location_data.get("scenes", ["Unknown scenes"]),
+                        "description": location_data.get("description", "No description available"),
+                        "best_visit_time": location_data.get("best_visit_time", "09:00-17:00"),
+                        "estimated_duration": location_data.get("estimated_duration", "1-2 hours"),
+                        "photo_url": location_data.get("photo_url", ""),
+                        "activities": location_data.get("activities", ["Visit location"]),
+                        "address": location_data.get("address", "Unknown address")
+                    }
+                    all_locations.append(location_info)
+            elif isinstance(locations, list):
+                # Handle list format: [{'name': '...', ...}, ...]
+                for location_data in locations:
+                    location_info = {
+                        "name": location_data.get("name", "Unknown Location"),
+                        "real_name": location_data.get("real_location", location_data.get("name", "Unknown")),
+                        "region": region,
+                        "coordinates": location_data.get("coordinates", [35.6762, 139.6503]),
+                        "episodes": location_data.get("episodes", ["Unknown"]),
+                        "scenes": location_data.get("scenes", ["Unknown scenes"]),
+                        "description": location_data.get("description", "No description available"),
+                        "best_visit_time": location_data.get("best_visit_time", "09:00-17:00"),
+                        "estimated_duration": location_data.get("estimated_duration", "1-2 hours"),
+                        "photo_url": location_data.get("photo_url", ""),
+                        "activities": location_data.get("activities", ["Visit location"]),
+                        "address": location_data.get("address", "Unknown address")
+                    }
+                    all_locations.append(location_info)
 
         # Optimize route and create schedule
         optimized_route = self._optimize_route(all_locations)

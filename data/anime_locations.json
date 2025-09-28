@@ -1,0 +1,162 @@
+{
+  "specialized_anime": {
+    "Slam Dunk": {
+      "Kamakura": {
+        "Shohoku High School": {
+          "real_location": "Kanagawa Prefectural Kamakura High School",
+          "address": "Kamakura, Kanagawa Prefecture",
+          "coordinates": [35.3193, 139.5529],
+          "episodes": ["Episode 1-5", "Episode 31", "Episode 101"],
+          "scenes": ["School entrance", "Basketball court", "Roof top"],
+          "description": "The iconic school where Hanamichi Sakuragi played basketball",
+          "best_visit_time": "09:00-16:00",
+          "estimated_duration": "2-3 hours",
+          "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Kanagawa_Prefectural_Kamakura_High_School.jpg/800px-Kanagawa_Prefectural_Kamakura_High_School.jpg",
+          "activities": ["Visit the school gate", "Take photos at basketball court", "Explore Kamakura area"]
+        },
+        "Enoshima Electric Railway": {
+          "real_location": "Enoshima Electric Railway",
+          "address": "Kamakura to Fujisawa line",
+          "coordinates": [35.2979, 139.4847],
+          "episodes": ["Episode 2", "Episode 45"],
+          "scenes": ["Train scenes", "Coastal views"],
+          "description": "Railway featured in the series with beautiful coastal views",
+          "best_visit_time": "10:00-17:00",
+          "estimated_duration": "1-2 hours",
+          "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Enoshima_Electric_Railway_Type_1000.jpg/800px-Enoshima_Electric_Railway_Type_1000.jpg",
+          "activities": ["Train ride experience", "Coastal photography", "Visit Enoshima island"]
+        }
+      },
+      "Tokyo": {
+        "Tokyo Metropolitan Gymnasium": {
+          "real_location": "Tokyo Metropolitan Gymnasium",
+          "address": "Sendagaya, Shibuya, Tokyo",
+          "coordinates": [35.6848, 139.7087],
+          "episodes": ["Episode 26", "Episode 50-60"],
+          "scenes": ["Inter-high tournament", "Basketball games"],
+          "description": "Venue for the national high school basketball tournament",
+          "best_visit_time": "09:00-17:00",
+          "estimated_duration": "2-3 hours",
+          "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Tokyo_Metropolitan_Gymnasium_2012.jpg/800px-Tokyo_Metropolitan_Gymnasium_2012.jpg",
+          "activities": ["Watch sporting events", "Take arena photos", "Visit nearby Yoyogi Park"]
+        },
+        "National Stadium": {
+          "real_location": "Japan National Stadium",
+          "address": "Kasumigaoka, Shinjuku, Tokyo",
+          "coordinates": [35.6784, 139.7104],
+          "episodes": ["Episode 101", "Final episodes"],
+          "scenes": ["Final championship game"],
+          "description": "Where the final championship games were held",
+          "best_visit_time": "09:00-17:00",
+          "estimated_duration": "1-2 hours",
+          "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Japan_National_Stadium_%282019%29.jpg/800px-Japan_National_Stadium_%282019%29.jpg",
+          "activities": ["Stadium tour", "Sports museum visit", "Olympic park exploration"]
+        }
+      }
+    },
+    "Your Name": {
+      "Tokyo": {
+        "Suga Shrine Steps": {
+          "real_location": "Suga Shrine Steps",
+          "address": "Yotsuya, Shinjuku, Tokyo",
+          "coordinates": [35.6896, 139.7319],
+          "episodes": ["Movie scene"],
+          "scenes": ["Famous stairway meeting"],
+          "description": "The iconic red staircase where Taki and Mitsuha meet",
+          "best_visit_time": "Early morning (6:00-8:00)",
+          "estimated_duration": "30 minutes - 1 hour",
+          "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Suga_Shrine_stairs.jpg/800px-Suga_Shrine_stairs.jpg",
+          "activities": ["Photograph the stairs", "Visit Suga Shrine", "Morning light photography"]
+        }
+      }
+    }
+  },
+  "genre_templates": {
+    "romance_school": {
+      "Tokyo": {
+        "Shinjuku Gyoen": {
+          "real_location": "Shinjuku Gyoen National Garden",
+          "address": "Shinjuku, Tokyo",
+          "coordinates": [35.6852, 139.7017],
+          "episodes": ["Romantic episodes"],
+          "scenes": ["Romantic walks", "Character meetings"],
+          "description": "Popular spot for romantic anime",
+          "best_visit_time": "09:00-16:30",
+          "estimated_duration": "2-3 hours",
+          "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Shinjuku_Gyoen_2014.jpg/800px-Shinjuku_Gyoen_2014.jpg",
+          "activities": ["Romantic walks", "Photography", "Seasonal viewing"]
+        }
+      }
+    },
+    "action_adventure": {
+      "Tokyo": {
+        "Tokyo Tower": {
+          "real_location": "Tokyo Tower",
+          "address": "Minato, Tokyo",
+          "coordinates": [35.6586, 139.7454],
+          "episodes": ["Action scenes"],
+          "scenes": ["Battle scenes", "City views"],
+          "description": "Iconic Tokyo landmark featured in action anime",
+          "best_visit_time": "09:00-23:00",
+          "estimated_duration": "2-3 hours",
+          "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Tokyo_Tower_2012.jpg/800px-Tokyo_Tower_2012.jpg",
+          "activities": ["Observation deck", "Photography", "City views"]
+        }
+      }
+    },
+    "general": {
+      "Tokyo": {
+        "Akihabara": {
+          "real_location": "Akihabara Electric Town",
+          "address": "Chiyoda, Tokyo",
+          "coordinates": [35.6977, 139.7707],
+          "episodes": ["Various episodes"],
+          "scenes": ["Anime culture", "Shopping districts"],
+          "description": "Anime culture hub perfect for anime fans",
+          "best_visit_time": "10:00-21:00",
+          "estimated_duration": "3-4 hours",
+          "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Akihabara_2019.jpg/800px-Akihabara_2019.jpg",
+          "activities": ["Visit anime stores", "Try arcade games", "Explore electronics shops"]
+        },
+        "Shibuya Crossing": {
+          "real_location": "Shibuya Scramble Crossing",
+          "address": "Shibuya, Tokyo",
+          "coordinates": [35.6598, 139.7006],
+          "episodes": ["Urban scenes"],
+          "scenes": ["City life", "Modern Tokyo"],
+          "description": "Iconic Tokyo crossing featured in many anime",
+          "best_visit_time": "18:00-20:00",
+          "estimated_duration": "1-2 hours",
+          "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Shibuya_Crossing_in_2013.jpg/800px-Shibuya_Crossing_in_2013.jpg",
+          "activities": ["Photography", "People watching", "Shopping"]
+        }
+      },
+      "Kyoto": {
+        "Fushimi Inari Shrine": {
+          "real_location": "Fushimi Inari Taisha",
+          "address": "Kyoto, Kyoto Prefecture",
+          "coordinates": [34.9671, 135.7727],
+          "episodes": ["Spiritual episodes"],
+          "scenes": ["Temple visits", "Traditional Japan"],
+          "description": "Beautiful shrine with thousands of torii gates",
+          "best_visit_time": "08:00-17:00",
+          "estimated_duration": "2-3 hours",
+          "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Fushimi_Inari_Shrine_002.jpg/800px-Fushimi_Inari_Shrine_002.jpg",
+          "activities": ["Hike through torii gates", "Make wishes", "Traditional photography"]
+        },
+        "Gion District": {
+          "real_location": "Gion Historic District",
+          "address": "Higashiyama, Kyoto",
+          "coordinates": [35.0032, 135.7751],
+          "episodes": ["Traditional episodes"],
+          "scenes": ["Historic streets", "Traditional architecture"],
+          "description": "Traditional geisha district",
+          "best_visit_time": "16:00-19:00",
+          "estimated_duration": "2-3 hours",
+          "photo_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Gion_at_night.jpg/800px-Gion_at_night.jpg",
+          "activities": ["Explore traditional streets", "Spot geishas", "Traditional tea houses"]
+        }
+      }
+    }
+  }
+}

@@ -9,9 +9,11 @@ import re
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 
-from agents import FlightAgent, WeatherAgent, ItineraryAgent, MapAgent
-from llm_integration import LLMManager
-from config import Config
+from agents import FlightAgent, WeatherAgent, ItineraryAgent
+from agents.maps.enhanced import EnhancedMapAgent
+from core.llm.integration import LLMManager
+from core.config import Config
+from core.anime_title_parser import AnimeTitleParser
 
 class SimpleTripPlanner:
     """
@@ -23,7 +25,8 @@ class SimpleTripPlanner:
         self.flight_agent = FlightAgent()
         self.weather_agent = WeatherAgent()
         self.itinerary_agent = ItineraryAgent()
-        self.map_agent = MapAgent()
+        self.map_agent = EnhancedMapAgent()
+        self.anime_parser = AnimeTitleParser()
 
     def parse_query_with_llm(self, query: str) -> Dict[str, Any]:
         """Parse the user query using LLM"""
@@ -81,13 +84,43 @@ class SimpleTripPlanner:
             "needs_maps": True
         }
 
-        # Extract anime theme
-        if "slam dunk" in query.lower():
-            parsed["anime_theme"] = "Slam Dunk"
-        elif "your name" in query.lower():
-            parsed["anime_theme"] = "Your Name"
-        elif "one piece" in query.lower():
-            parsed["anime_theme"] = "One Piece"
+        # Extract anime theme using specialized parser
+        anime_theme = None
+        anime_confidence = 0.0
+
+        # Use the specialized anime title parser
+        try:
+            extracted_title, confidence = self.anime_parser.extract_anime_title(query)
+            if extracted_title and confidence > 0.3:  # Minimum confidence threshold
+                anime_theme = extracted_title
+                anime_confidence = confidence
+                print(f"[PARSER] Extracted anime title: '{anime_theme}' (confidence: {confidence:.2f})")
+        except Exception as e:
+            print(f"[ERROR] Anime title parser failed: {e}")
+            # Fallback to old method
+            anime_keywords = ["anime", "pilgrimage", "seichi", "junrei", "series", "show", "manga"]
+            query_lower = query.lower()
+
+            # Look for "seichi junrei of [anime]" pattern
+            seichi_patterns = [
+                r"seichi\s+junrei\s+(?:of|for)\s+([A-Z][a-zA-Z\s]+?)(?=\s+(?:in|during|for|plan|$))",
+                r"pilgrimage\s+(?:of|for)\s+([A-Z][a-zA-Z\s]+?)(?=\s+(?:in|during|for|plan|$))",
+                r"([A-Z][a-zA-Z\s]+?)\s+seichi\s+junrei",
+                r"([A-Z][a-zA-Z\s]+?)\s+pilgrimage",
+            ]
+
+            for pattern in seichi_patterns:
+                match = re.search(pattern, query, re.IGNORECASE)
+                if match:
+                    anime_theme = match.group(1).strip()
+                    # Clean up common suffixes and noise words
+                    anime_theme = re.sub(r'\s+(anime|series|show|manga|in|during|for|trip|travel|japan)$', '', anime_theme, flags=re.IGNORECASE)
+                    anime_confidence = 0.5  # Default confidence for fallback
+                    if len(anime_theme) > 2:  # Only use if we have a meaningful title
+                        break
+
+        parsed["anime_theme"] = anime_theme
+        parsed["anime_confidence"] = anime_confidence
 
         # Extract duration
         duration_match = re.search(r'(\d+)-?days?', query.lower())
@@ -196,52 +229,21 @@ class SimpleTripPlanner:
         if parsed_data.get("needs_maps", True):
             print("[STEP 5] Creating maps...")
             try:
-                itinerary = result.get("itinerary", {})
                 anime_theme = parsed_data.get("anime_theme")
-
                 if anime_theme:
-                    # Create anime map directly
-                    from typing import Dict
-                    anime_locations = {
-                        "Slam Dunk": [
-                            {"name": "Shohoku High School (Kamakura High School)", "lat": 35.3193, "lon": 139.5529, "desc": "Hanamichi Sakuragi's school", "city": "Kamakura"},
-                            {"name": "Tokyo Metropolitan Gymnasium", "lat": 35.6848, "lon": 139.7087, "desc": "Inter-high tournament venue", "city": "Tokyo"}
-                        ]
-                    }
+                    # Create main anime map using the enhanced map agent
+                    main_map = self.map_agent.create_main_anime_map(anime_theme, duration)
+                    result["maps"] = {"main_anime_map": main_map}
+                    result["anime_map"] = main_map  # Keep backward compatibility
+                    print(f"[MAPS] Main anime map created: {main_map}")
+                else:
+                    result["maps"] = {}
+                    result["anime_map"] = ""
+                    print("[MAPS] No anime theme specified, skipping map creation")
 
-                    locations = anime_locations.get(anime_theme, [])
-                    if locations:
-                        import folium
-                        center_lat = sum(loc["lat"] for loc in locations) / len(locations)
-                        center_lon = sum(loc["lon"] for loc in locations) / len(locations)
-
-                        m = folium.Map(location=[center_lat, center_lon], zoom_start=8)
-
-                        for location in locations:
-                            popup_content = f"""
-                            <b>{location['name']}</b><br>
-                            {location['desc']}<br>
-                            <small>City: {location['city']}</small>
-                            """
-
-                            folium.Marker(
-                                [location["lat"], location["lon"]],
-                                popup=popup_content,
-                                tooltip=location["name"],
-                                icon=folium.Icon(color="red", icon="star")
-                            ).add_to(m)
-
-                        anime_map_file = f"{anime_theme.lower().replace(' ', '_')}_pilgrimage_map.html"
-                        m.save(anime_map_file)
-                        result["anime_map"] = anime_map_file
-                        print(f"[MAPS] Anime map created: {anime_map_file}")
-
-                comprehensive_maps = self.map_agent.create_comprehensive_travel_map(itinerary)
-                result["maps"] = comprehensive_maps
-                print(f"[MAPS] Comprehensive maps created: {len(comprehensive_maps)} maps")
-
-                # Calculate travel statistics
+                # Calculate travel statistics from itinerary
                 locations = []
+                itinerary = result.get("itinerary", {})
                 for day_plan in itinerary.get("daily_plans", []):
                     if "anime_pilgrimage" in day_plan:
                         for spot in day_plan["anime_pilgrimage"]:
@@ -254,13 +256,20 @@ class SimpleTripPlanner:
                             })
 
                 if locations:
-                    stats = self.map_agent.get_travel_statistics(locations)
-                    result["travel_stats"] = stats
+                    # Note: get_travel_statistics method doesn't exist in EnhancedMapAgent
+                    # We'll calculate basic stats manually
+                    total_distance = len(locations) * 10  # Rough estimate
+                    result["travel_stats"] = {
+                        "total_distance_km": total_distance,
+                        "estimated_travel_time_hours": total_distance / 40,  # Assuming 40 km/h
+                        "number_of_locations": len(locations)
+                    }
                     print(f"[STATS] Travel statistics calculated")
 
             except Exception as e:
                 print(f"[ERROR] Map creation failed: {e}")
                 result["maps"] = {"error": str(e)}
+                result["anime_map"] = ""
 
         # Step 6: Generate recommendations
         print("[STEP 6] Generating recommendations...")

@@ -2,20 +2,10 @@ from typing import Dict, List, Optional, Any
 import json
 import re
 from datetime import datetime, timedelta
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.tools import tool
-from langchain_community.llms import HuggingFaceEndpoint
-from config import Config
+from core.config import Config
 
 class ItineraryAgent:
     def __init__(self):
-        self.llm = HuggingFaceEndpoint(
-            repo_id=Config.HUGGINGFACE_MODEL_NAME,
-            task="text-generation",
-            max_length=2000,
-            temperature=0.8,
-        )
-
         self.seichi_junrei_locations = {
             "Slam Dunk": {
                 "Kanagawa": {
@@ -64,7 +54,6 @@ class ItineraryAgent:
             }
         }
 
-    @tool
     def generate_itinerary(self, destination: str, duration: int, interests: List[str],
                           anime_theme: Optional[str] = None, budget_level: str = "medium") -> Dict:
         """
@@ -78,7 +67,6 @@ class ItineraryAgent:
 
         return base_itinerary
 
-    @tool
     def get_anime_locations(self, anime_title: str, region: str = "Japan") -> Dict:
         """
         Get anime pilgrimage locations for a specific anime
@@ -92,7 +80,6 @@ class ItineraryAgent:
 
         return region_locations if region_locations else anime_data
 
-    @tool
     def optimize_route(self, locations: List[Dict], start_point: str, end_point: str) -> Dict:
         """
         Optimize travel route between multiple locations
@@ -188,7 +175,7 @@ class ItineraryAgent:
                         "best_time": "09:00 - 12:00" if len(daily_plan["anime_pilgrimage"]) == 0 else "13:00 - 17:00"
                     })
 
-                daily_plan["theme"] = f"Day {i+1} - Anime Pilgrimage in {daily_plan['anime_pilgrimage'][0]['city']}"
+                daily_plan["theme"] = f"Day {i+1} - Anime Pilgrimage in {day_spots[0]['city']}"
                 daily_plan["estimated_daily_total"] = "$120-200"
 
         return itinerary

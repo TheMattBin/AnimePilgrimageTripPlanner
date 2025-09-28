@@ -2,22 +2,11 @@ from typing import Dict, List, Optional
 import requests
 import json
 from datetime import datetime, timedelta
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.tools import tool
-from langchain_community.llms import HuggingFaceEndpoint
-from config import Config
+from core.config import Config
 
 class WeatherAgent:
     def __init__(self):
-        self.llm = HuggingFaceEndpoint(
-            repo_id=Config.HUGGINGFACE_MODEL_NAME,
-            task="text-generation",
-            max_length=1000,
-            temperature=0.7,
-        )
         self.api_key = Config.WEATHER_API_KEY
-
-    @tool
     def get_current_weather(self, city: str, country: Optional[str] = None) -> Dict:
         """
         Get current weather for a city
@@ -44,7 +33,6 @@ class WeatherAgent:
         except Exception as e:
             return self._mock_weather_data(city, country)
 
-    @tool
     def get_forecast(self, city: str, country: Optional[str] = None, days: int = 7) -> Dict:
         """
         Get weather forecast for multiple days

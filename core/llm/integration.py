@@ -5,7 +5,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.language_models import LLM
 from langchain_core.outputs import LLMResult
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
-from config import Config
+from core.config import Config
 
 class LocalHuggingFaceLLM(LLM):
     """

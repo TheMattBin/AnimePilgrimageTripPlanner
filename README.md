@@ -1,196 +1,143 @@
-# Multi-Agent Trip Planning System
+# Anime Pilgrimage Trip Planning System
 
-A comprehensive AI-powered trip planning system specializing in Anime Pilgrimage (聖地巡礼) travel using LangGraph and local Hugging Face models.
+**Natural Language Query → Complete Trip Plan**
 
-## Features
+A sophisticated agentic system that plans complete anime pilgrimage (Seichi Junrei) trips by searching for real filming locations. Simply describe your trip in natural language and get interactive maps, detailed itineraries, and professional reports.
 
-✈️ **Flight Search Agent**
-- Real-time flight search and booking assistance
-- Mock data support for demonstration
-- Price comparison and scheduling
+## 🚀 Quick Start
 
-🌤️ **Weather Agent**
-- Current weather conditions
-- 10-day weather forecasts
-- Best travel day recommendations based on weather preferences
-
-🗺️ **Itinerary Planning Agent**
-- Customizable travel plans
-- Anime pilgrimage location integration
-- Budget-based recommendations
-- Activity suggestions based on interests
-
-🎌 **Anime Pilgrimage Support**
-- Slam Dunk locations (Kamakura, Tokyo)
-- Your Name locations (Shinjuku, Tokyo)
-- One Piece locations (Tokyo Tower, Odaiba)
-- Interactive mapping with coordinates
-
-🗺️ **Map Integration**
-- Interactive travel maps using Folium
-- Route optimization
-- Distance calculations
-- Location visualization
-
-## Installation
-
-1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd Home-assist
+# Try it now
+python main.py "plan a trip for Seichi junrei of Bunny Girl Senpai in December 2025"
+
+# Web interface
+python start_api.py  # Open http://localhost:8000
+
+# Help
+python main.py help
 ```
 
-2. Install dependencies:
+## ✨ What You Get
+
+- **Real Filming Locations**: Searches for actual anime scene locations
+- **Interactive Maps**: HTML maps with exact coordinates and routes
+- **Complete Reports**: Markdown/PDF itineraries with all travel details
+- **Any Anime**: Supports every anime series with intelligent location search
+- **No API Costs**: Works with local AI models and mock data
+
+## 🎯 Example Usage
+
 ```bash
+# Bunny Girl Senpai pilgrimage
+python main.py "Seichi junrei of Bunny Girl Senpai"
+
+# Attack on Titan locations
+python main.py "5-day Attack on Titan trip in Japan"
+
+# Your Name romance tour
+python main.py "romantic pilgrimage for Your Name anime"
+
+# Any anime series
+python main.py "anime pilgrimage for [Your Favorite Anime]"
+```
+
+## 📁 Clean Architecture
+
+- **10 Core Python Files**: No duplicates or legacy code
+- **Agent System**: Modular agents for flights, weather, maps, etc.
+- **Local AI**: HuggingFace models run locally
+- **Web Ready**: FastAPI backend included
+- **Extensible**: Easy to add new features
+
+## 🔧 System Requirements
+
+- **Python**: 3.8+
+- **Memory**: 4GB+ RAM recommended
+- **Storage**: 1GB+ for AI models
+- **Optional**: API keys for real flight/weather data
+
+## 🌟 Key Features
+
+- **Active Location Search**: Finds real filming locations for any anime
+- **Intelligent Analysis**: Understands anime genres and themes
+- **Route Optimization**: Efficient travel routes between locations
+- **Professional Output**: Ready-to-use trip plans and maps
+- **Universal Support**: Works with any anime series
+
+## 📖 Documentation
+
+- [API Usage Guide](API_USAGE.md) - Web API documentation
+- [Seichi Search System](SEICHI_SEARCH_SYSTEM.md) - Technical details
+- [Clean README](README_CLEAN.md) - Comprehensive guide
+
+## 🎨 What You Get
+
+### **Interactive HTML Map**
+- Real filming locations with exact coordinates
+- Episode-specific scene information
+- Visit times and activity suggestions
+- Optimized travel routes
+
+### **Comprehensive Report**
+- Detailed daily itinerary
+- Flight and weather information
+- Location descriptions and photos
+- Cost estimates and recommendations
+
+### **Professional Output**
+- Markdown report for easy reading
+- PDF report for printing/sharing
+- Interactive map for exploration
+- All files saved locally
+
+## 🚀 Setup Instructions
+
+### 1. Environment Setup
+```bash
+cd "D:\Side Projects\Home-assist"
+conda activate trip_planner
 pip install -r requirements.txt
 ```
 
-3. Set up environment variables:
+### 2. Configure Environment (Optional)
 ```bash
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env - system works with mock data by default
 ```
 
-## Configuration
+### 3. Start Using
 
-Create a `.env` file with the following:
-
-```env
-HUGGINGFACE_MODEL_NAME="microsoft/DialoGPT-medium"
-HUGGINGFACE_API_KEY=your_huggingface_api_key_here
-FLIGHT_API_KEY=your_flight_api_key_here
-WEATHER_API_KEY=your_weather_api_key_here
-OPENSTREETMAP_USER_AGENT=trip_planner_app
-NOMINATIM_EMAIL=your_email@example.com
-```
-
-## Usage
-
-### Interactive Mode
-
-Run the main application:
+#### **Command Line**
 ```bash
+# Interactive mode
 python main.py
+
+# Direct query
+python main.py "plan a trip for Seichi junrei of Bunny Girl Senpai"
+
+# Help
+python main.py help
 ```
 
-### Command Line Mode
-
-Plan a specific trip:
+#### **Web Interface**
 ```bash
-python main.py "7-days trip plan from Taiwan to Japan and wanna enjoy Seichi junrei of Slam Dunk"
+# Start API server
+python start_api.py
+# Open browser to: http://localhost:8000
 ```
 
-### Example Queries
+## 🌟 Supported Anime
 
-- `"7-days trip plan from Taiwan to Japan and wanna enjoy Seichi junrei of Slam Dunk"`
-- `"Plan a 5-day trip to Tokyo focusing on Your Name locations"`
-- `"10-day Japan trip with One Piece pilgrimage, medium budget"`
-- `"3-day Kyoto trip with cultural sites and traditional food experience"`
+### **Specialized Support** (specific locations):
+- **Slam Dunk**: Basketball locations in Kamakura/Tokyo
+- **Your Name**: Movie scene locations in Tokyo
+- **One Piece**: Adventure locations throughout Japan
 
-## System Architecture
+### **Universal Support** (intelligent search):
+- **Bunny Girl Senpai**: Romance school locations in Tokyo
+- **Attack on Titan**: Action locations and historical sites
+- **Any Anime**: Genre-appropriate location suggestions
 
-### Multi-Agent System
+---
 
-The system uses LangGraph to coordinate multiple specialized agents:
-
-1. **Query Parser Agent**: Analyzes user queries and extracts parameters
-2. **Flight Search Agent**: Handles flight searches and booking information
-3. **Weather Agent**: Provides weather forecasts and recommendations
-4. **Itinerary Agent**: Creates detailed travel plans with anime pilgrimage integration
-5. **Map Agent**: Creates interactive maps and route optimization
-
-### Local Model Support
-
-The system uses local Hugging Face models for privacy and offline capability:
-- Microsoft DialoGPT (default)
-- TinyLlama (lightweight option)
-- Custom model support
-
-### Supported Anime Pilgrimage
-
-#### Slam Dunk
-- **Kamakura High School** (Shohoku High School)
-- **Tokyo Metropolitan Gymnasium** (Inter-high tournament)
-- **Enoshima Electric Railway**
-
-#### Your Name (君の名は。)
-- **Shinjuku Gyoen** (Meeting park)
-- **Suga Shrine Steps** (Iconic staircase)
-- **Shinjuku Station** (Train station)
-
-#### One Piece
-- **Tokyo Tower** (Marianne inspiration)
-- **Odaiba** (Statue of Liberty)
-
-## Output Example
-
-The system provides comprehensive trip plans including:
-
-- ✈️ Flight options and prices
-- 🌤️ Weather forecasts and best travel days
-- 🗺️ Detailed daily itineraries with anime locations
-- 🗺️ Interactive HTML maps
-- 📊 Travel statistics (distances, times)
-- 💡 Personalized recommendations
-
-## Map Features (100% Free!)
-
-- **Interactive HTML maps** with location markers using OpenStreetMap
-- **Multiple tile layers** (OpenStreetMap, Stamen Terrain, CartoDB)
-- **Color-coded categories** (anime, food, hotels, transport)
-- **Route optimization** between pilgrimage sites
-- **Distance calculations** and travel time estimates
-- **Nearby places search** using Overpass API
-- **Export capabilities** for offline use
-
-## Free Map APIs Used
-
-1. **OpenStreetMap Nominatim** - Free geocoding (address to coordinates)
-2. **OpenStreetMap Overpass API** - Free nearby places search
-3. **Folium** - Free interactive map library
-4. **Geopy** - Free geocoding library
-
-No Google Maps API required! All mapping features work completely free.
-
-## Customization
-
-### Adding New Anime Locations
-
-Edit `agents/itinerary_agent.py` to add new pilgrimage locations:
-
-```python
-self.seichi_junrei_locations["New Anime"] = {
-    "Region": {
-        "Location Name": {
-            "real_location": "Real place name",
-            "address": "Full address",
-            "description": "Description of the location",
-            "coordinates": [latitude, longitude],
-            "activities": ["Activity 1", "Activity 2"]
-        }
-    }
-}
-```
-
-### Adding New Agents
-
-Create new agent classes in the `agents/` directory and integrate them into the LangGraph workflow in `trip_planner_graph.py`.
-
-## Requirements
-
-- Python 3.8+
-- PyTorch (for local model inference)
-- Internet connection (for API calls and map tiles)
-- Sufficient RAM for model loading (2GB+ recommended)
-
-## License
-
-This project is for educational and personal use. Please ensure compliance with terms of service for any external APIs used.
-
-## Contributing
-
-Feel free to submit issues and enhancement requests!
-
-## Support
-
-For issues and questions, please check the documentation or create an issue in the repository.
+**Transform your anime fandom into real pilgrimage experiences with authentic filming locations!** 🗺️✨

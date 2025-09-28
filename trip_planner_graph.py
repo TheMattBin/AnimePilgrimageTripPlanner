@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Any, Annotated
-from langgraph.graph import Graph, END, START
+from langgraph.graph import StateGraph, END, START
+from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolExecutor
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from agents import FlightAgent, WeatherAgent, ItineraryAgent, MapAgent
@@ -23,7 +24,18 @@ class TripPlannerGraph:
 
     def _build_graph(self):
         """Build the LangGraph workflow"""
-        workflow = Graph()
+        from typing import TypedDict
+
+        class TripState(TypedDict):
+            query: str
+            parsed_data: Dict[str, Any]
+            flight_info: Dict[str, Any]
+            weather_info: Dict[str, Any]
+            itinerary: Dict[str, Any]
+            map_files: Dict[str, str]
+            final_response: Dict[str, Any]
+
+        workflow = StateGraph(TripState)
 
         workflow.add_node("parse_query", self._parse_query)
         workflow.add_node("flight_search", self._search_flights)

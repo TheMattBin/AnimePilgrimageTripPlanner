@@ -139,12 +139,12 @@ class FlightAgent:
         if not flight_data or 'data' not in flight_data:
             return "No flights found for your search criteria."
 
-        result = "🛫 **Available Flights**\n\n"
+        result = "[FLIGHTS] Available Flights\n\n"
 
         for i, flight in enumerate(flight_data['data'][:5], 1):
             flight_info = flight.get('flight', {})
 
-            result += f"**Flight {i}: {flight_info.get('iata', 'N/A')}**\n"
+            result += f"Flight {i}: {flight_info.get('iata', 'N/A')}\n"
             result += f"From: {flight_info.get('departure', {}).get('airport', 'N/A')}\n"
             result += f"To: {flight_info.get('arrival', {}).get('airport', 'N/A')}\n"
             result += f"Departure: {flight_info.get('departure', {}).get('scheduled', 'N/A')}\n"

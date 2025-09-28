@@ -12,7 +12,7 @@ class LocalHuggingFaceLLM(LLM):
     Custom LangChain LLM wrapper for local Hugging Face models
     """
 
-    model_name: str
+    model_name: str = "microsoft/DialoGPT-medium"
     tokenizer: Optional[Any] = None
     model: Optional[Any] = None
     pipeline: Optional[Any] = None
@@ -20,7 +20,7 @@ class LocalHuggingFaceLLM(LLM):
     max_length: int = 1000
     temperature: float = 0.7
 
-    def __init__(self, model_name: str, **kwargs):
+    def __init__(self, model_name: str = "microsoft/DialoGPT-medium", **kwargs):
         super().__init__(**kwargs)
         self.model_name = model_name
         self._load_model()

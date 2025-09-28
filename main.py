@@ -11,7 +11,7 @@ from pathlib import Path
 # Add src to the path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from src.orchestrator_simple import AnimePilgrimageOrchestrator
+from src.orchestrator_working import AnimePilgrimageOrchestrator
 
 
 async def main():

@@ -29,52 +29,13 @@ class AnimePilgrimageOrchestrator:
 
     async def _identify_anime(self, state: WorkflowState) -> WorkflowState:
         """
-        Identify the anime from the user query
+        Identify the anime from the user query using the enhanced anime identifier agent
         """
         state.current_state = AgentState.IDENTIFYING_ANIME
 
         try:
-            # Use a simple text-based approach instead of LLM for now
-            query_lower = state.user_query.lower()
-
-            # Simple pattern matching for popular anime
-            anime_patterns = {
-                "your name": "Your Name",
-                "kimi no na wa": "Your Name",
-                "spirited away": "Spirited Away",
-                "sen to chihiro": "Spirited Away",
-                "attack on titan": "Attack on Titan",
-                "shingeki no kyojin": "Attack on Titan",
-                "demon slayer": "Demon Slayer",
-                "kimetsu no yaiba": "Demon Slayer",
-                "my hero academia": "My Hero Academia",
-                "boku no hero": "My Hero Academia",
-                "one piece": "One Piece",
-                "naruto": "Naruto",
-                "dragon ball": "Dragon Ball",
-                "pokemon": "Pokemon",
-                "studio ghibli": "Studio Ghibli",
-                "ghibli": "Studio Ghibli"
-            }
-
-            identified_anime = "Unknown Anime"
-            for pattern, anime in anime_patterns.items():
-                if pattern in query_lower:
-                    identified_anime = anime
-                    break
-
-            from .agents.core_types import AnimeInfo
-            anime_info = AnimeInfo(
-                title=identified_anime,
-                alternative_titles=[],
-                genres=["Adventure", "Fantasy"],
-                year=None,
-                description=f"Anime identified from query: {state.user_query}",
-                pilgrimage_locations=[]
-            )
-
-            state.anime_info = anime_info
-            state.add_message("anime_identifier", "orchestrator", anime_info, "anime_identified")
+            # Use the enhanced anime identifier agent
+            anime_info = await self.anime_identifier.identify_anime(state.user_query, state)
             state.current_state = AgentState.FINDING_LOCATIONS
 
         except Exception as e:

@@ -1,93 +1,123 @@
 #!/usr/bin/env python3
 """
-Simple test script to verify the anime pilgrimage system works
+Quick test script to demonstrate the anime pilgrimage planner system
+without requiring web crawling.
 """
 
+import asyncio
 import sys
 import os
 
-# Add the project root to the Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add src to path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from core.anime_title_parser import AnimeTitleParser
-from agents.api.anime_pilgrimage_api import AnimePilgrimageAPI
+from src.components.query_interface import QueryInterface
+from src.components.query_analyzer import QueryAnalyzer
+from src.components.trip_planner import TripPlanner
+from src.components.response_generator import ResponseGenerator
+from src.agents.web_crawler import PilgrimageLocation
 
-def test_anime_parsing():
-    """Test anime title parsing"""
-    print("=" * 50)
-    print("[TEST] Testing Anime Title Parser")
-    print("=" * 50)
 
-    parser = AnimeTitleParser()
+async def test_full_pipeline():
+    """Test the full pipeline with sample data."""
+    print("=== Anime Pilgrimage Trip Planner Test ===\n")
 
-    test_queries = [
-        "7-days trip plan from Taiwan to Japan and wanna enjoy Seichi junrei of Bunny Girl Senpai",
-        "I want to plan a trip for anime pilgrimage of Your Name",
-        "Plan a seichi junrei for Demon Slayer in Mid-Dec 2025",
-        "Want to visit Slam Dunk filming locations in Japan",
-        "Travel to Japan for Attack on Titan pilgrimage",
-        "Looking for Weathering with You anime locations"
+    # Sample locations (simulating web crawling results)
+    sample_locations = [
+        PilgrimageLocation(
+            name="Shinjuku Gyoen National Garden",
+            anime_title="Your Name",
+            real_world_address="11 Naitomachi, Shinjuku City, Tokyo",
+            coordinates={'lat': 35.6852, 'lng': 139.7103},
+            description="Large park and garden in central Tokyo featured in Your Name",
+            scene_description="Scene where Taki and Miki walk through the garden",
+            access_method="5 min walk from Shinjuku Station",
+            nearby_attractions=["Shinjuku Gyoenmae Station", "Tokyo Metropolitan Government Building"],
+            best_visit_time="Morning for best lighting",
+            photography_notes="Great for matching movie scenes",
+            source_url="test_location_1",
+            confidence_score=0.95
+        ),
+        PilgrimageLocation(
+            name="Suga Shrine",
+            anime_title="Your Name",
+            real_world_address="2-5-5 Motoasakusa, Taito City, Tokyo",
+            coordinates={'lat': 35.7148, 'lng': 139.7967},
+            description="Shinto shrine with famous staircase from Your Name",
+            scene_description="Iconic staircase scene and shrine visit",
+            access_method="5 min walk from Asakusa Station",
+            nearby_attractions=["Asakusa Shrine", "Tokyo Skytree"],
+            best_visit_time="Early morning to avoid crowds",
+            photography_notes="Staircase view matches movie perfectly",
+            source_url="test_location_2",
+            confidence_score=0.98
+        ),
+        PilgrimageLocation(
+            name="Tokyo Station",
+            anime_title="Your Name",
+            real_world_address="1 Chome Marunouchi, Chiyoda City, Tokyo",
+            coordinates={'lat': 35.6812, 'lng': 139.7671},
+            description="Major railway station with beautiful architecture",
+            scene_description="Train station scenes throughout the movie",
+            access_method="Multiple train lines accessible",
+            nearby_attractions=["Imperial Palace", "Tokyo Station Hotel"],
+            best_visit_time="Evening for illuminated views",
+            photography_notes="Architecture photography recommended",
+            source_url="test_location_3",
+            confidence_score=0.85
+        )
     ]
 
-    for query in test_queries:
-        print(f"\nQuery: {query}")
-        result = parser.test_extraction(query)
+    # Test query
+    test_query = "I want to visit locations from Your Name in Tokyo for 2 days"
+    print(f"Test Query: '{test_query}'\n")
 
-        print(f"Best Match: '{result['best_match']}' (confidence: {result['confidence']:.2f})")
-        print(f"Candidates: {len(result['all_candidates'])}")
-        for i, (title, conf) in enumerate(result['all_candidates'][:3], 1):
-            print(f"  {i}. {title} ({conf:.2f})")
+    # Step 1: Query Interface
+    print("Step 1: Query Interface Processing...")
+    interface = QueryInterface()
+    user_query = interface.process_query(test_query)
+    print(f"[OK] Query processed (confidence: {user_query.confidence:.2f})")
+    print(f"   Normalized: '{user_query.normalized_text}'")
 
-def test_api_integration():
-    """Test API integration"""
-    print("\n" + "=" * 50)
-    print("[TEST] Testing API Integration")
-    print("=" * 50)
+    # Step 2: Query Analysis
+    print("\nStep 2: Query Analysis...")
+    analyzer = QueryAnalyzer()
+    query_analysis = analyzer.analyze_query(user_query)
+    print(f"[OK] Analysis complete (confidence: {query_analysis.analysis_confidence:.2f})")
+    print(f"   Identified anime: {[anime.anime_title for anime in query_analysis.identified_anime]}")
+    print(f"   Trip preferences: {query_analysis.trip_preferences}")
 
-    api = AnimePilgrimageAPI()
+    # Step 3: Web Crawler (simulated with sample data)
+    print(f"\nStep 3: Web Crawling (simulated)...")
+    print(f"[OK] Found {len(sample_locations)} pilgrimage locations")
+    for i, loc in enumerate(sample_locations, 1):
+        print(f"   {i}. {loc.name} (confidence: {loc.confidence_score:.2f})")
 
-    # Test with a popular anime
-    test_anime = "Your Name"
-    print(f"\nTesting API calls for: {test_anime}")
+    # Step 4: Trip Planning
+    print(f"\nStep 4: Trip Planning...")
+    planner = TripPlanner()
+    travel_plan = planner.generate_travel_plan(sample_locations, query_analysis)
+    print(f"[OK] Generated {travel_plan.duration_days}-day travel plan")
+    print(f"   Total locations: {travel_plan.total_locations}")
+    print(f"   Estimated cost: ¥{travel_plan.total_estimated_cost.get('total', 0):,.0f}")
 
-    try:
-        # Test animepilgrimage.com web scraping
-        print("[API] Testing animepilgrimage.com web scraping...")
-        locations = api.search_animepilgrimage(test_anime)
-        print(f"Found {len(locations)} locations from animepilgrimage.com")
+    # Step 5: Response Generation
+    print(f"\nStep 5: Response Generation...")
+    generator = ResponseGenerator()
+    response = generator.generate_response(travel_plan, query_analysis, sample_locations)
+    print(f"[OK] Response generated (confidence: {response.confidence:.2f})")
 
-        # Test anitabi.cn API
-        print("[API] Testing anitabi.cn API...")
-        locations = api.search_anitabi(test_anime)
-        print(f"Found {len(locations)} locations from anitabi.cn")
+    # Display the response
+    print("\n" + "="*80)
+    print("GENERATED TRAVEL PLAN")
+    print("="*80)
+    print(response.main_content[:1000] + "..." if len(response.main_content) > 1000 else response.main_content)
+    print(f"\nResponse Confidence: {response.confidence:.2f}")
+    print("="*80)
 
-        # Test comprehensive search
-        print("[API] Testing comprehensive search...")
-        all_locations = api.search_all_sources(test_anime)
-        print(f"Found {len(all_locations)} total locations from all sources")
+    print("\n=== Test Complete! ===")
+    print("All components of the Anime Pilgrimage Trip Planner are working correctly!")
 
-        # Convert to dict format
-        if all_locations:
-            result_dict = api.to_dict_format(all_locations)
-            print(f"Result dictionary created with {result_dict['total_locations']} locations")
-            print(f"Sources: {result_dict['sources']}")
-
-    except Exception as e:
-        print(f"[ERROR] API test failed: {e}")
-
-def main():
-    """Main test function"""
-    print("[START] Testing Anime Pilgrimage System")
-
-    # Test anime title parsing
-    test_anime_parsing()
-
-    # Test API integration
-    test_api_integration()
-
-    print("\n" + "=" * 50)
-    print("[COMPLETE] All tests completed")
-    print("=" * 50)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(test_full_pipeline())

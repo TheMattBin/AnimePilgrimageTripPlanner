@@ -1,68 +1,61 @@
 # Anime Pilgrimage Trip Planner
 
-An agentic system that turns natural-language anime pilgrimage requests into structured, geocoded, multi-day Japan travel itineraries using **LangGraph**, **OpenRouter free-tier LLMs/VLMs**, and **`uv`**.
+An agentic system that turns natural-language requests **or uploaded anime screenshots** into structured, geocoded, multi-day Japan travel itineraries with an interactive route map — powered by **LangGraph**, **OpenRouter free-tier LLMs/VLMs**, **`uv`**, **FastAPI**, and a **TypeScript + React + Leaflet UI**.
 
 ## Highlights
 
-- **`uv`-managed Python package** (`pyproject.toml` + `uv.lock`, no heavy local PyTorch/HuggingFace weights)
-- **OpenRouter Free-Tier LLM & VLM Client** (`openrouter/free` with configurable `:free` fallbacks, structured Pydantic JSON extraction, retry/backoff, and VLM image-analysis support ready for screenshot lookup)
-- **Iterative LangGraph Web Crawler** — plans English + Japanese (`聖地巡礼` / `ロケ地`) searches across all identified anime, extracts structured locations from cleaned articles (`trafilatura`), refines queries when coverage is sparse, and deduplicates candidates
-- **Real Geocoding & Metadata** — OpenStreetMap Nominatim + Photon fallback with SQLite caching and Jikan (MyAnimeList) official Japanese title enrichment
-- **Multi-City Route & Budget Optimizer** — separates regional clusters (e.g., Tokyo vs. Hida Takayama), preserves un-geocoded spots, runs nearest-neighbor + 2-opt TSP ordering, generates timed daily schedules, and computes tier-aware JPY budgets including lodging
-- **API-Ready Models** — strongly typed Pydantic v2 models (`GeneratedResponse`, `TravelPlan`, `ScheduledStop`, `PilgrimageLocation`) ready to power a future TypeScript web UI
+- **`uv`-managed Python package** (`pyproject.toml` + `uv.lock`, no local PyTorch/HuggingFace weights)
+- **OpenRouter Free-Tier LLM & VLM Client** (`openrouter/free` with configurable `:free` fallbacks, structured Pydantic JSON extraction, retry/backoff, and multimodal screenshot analysis)
+- **VLM Screenshot → Pilgrimage Itinerary** — upload an anime frame or photo to identify the anime, read Japanese signage, estimate the real-world landmark, get camera framing tips, and build a full itinerary
+- **Iterative LangGraph Web Crawler** — plans English + Japanese (`聖地巡礼` / `ロケ地`) queries across all identified anime, decodes UTF-8 / `Shift_JIS` / `EUC-JP` blogs via `trafilatura`, filters off-target anime, verifies source URLs, and geocodes with cached OpenStreetMap Nominatim + Photon fallback
+- **Realistic Japan Transit & Route Optimizer** — multi-city regional clustering, 2-opt TSP ordering, Shinkansen vs. hybrid Shinkansen + limited express vs. domestic flight timing, morning/evening transfer scheduling, and travel-style JPY budgets
+- **FastAPI + TypeScript Web UI** — interactive Leaflet route map with day-colored numbered pins, scene popups, screenshot drag-and-drop, and Markdown/JSON export
 
-## Architecture
+## Quick Start
 
-```
-User Query
-  ↓
-[QueryInterface]               Unicode-safe validation & normalization
-  ↓
-[QueryAnalyzer]                OpenRouter structured LLM + Jikan EN/JP metadata
-  ↓
-[AgenticWebCrawler]            LangGraph iterative loop:
-                               plan_queries → search_and_fetch → extract_locations
-                               → merge_locations ──(refine if sparse)──↺
-                                                 └→ geocode_locations (Nominatim/Photon + SQLite cache)
-  ↓
-[TripPlanner]                  Multi-city clustering, 2-opt TSP, timetable & JPY budget
-  ↓
-[ResponseGenerator]            Markdown guide + structured JSON payload
+### 1. Backend Setup (`uv`)
+
+```bash
+uv sync
+cp .env.example .env
+# Add your free OpenRouter API key from https://openrouter.ai/keys
 ```
 
-## Quick Start (with `uv`)
+### 2. Run the CLI
 
-1. **Install dependencies:**
-   ```bash
-   uv sync
-   ```
+```bash
+# Interactive mode
+uv run pilgrimage
 
-2. **Configure environment variables:**
-   ```bash
-   cp .env.example .env
-   ```
-   Add your free API key from [OpenRouter](https://openrouter.ai/keys):
-   ```env
-   OPENROUTER_API_KEY=sk-or-v1-...
-   OPENROUTER_LLM_MODEL=openrouter/free
-   OPENROUTER_VLM_MODEL=openrouter/free
-   ```
-   *(Optional: add `TAVILY_API_KEY` for higher-precision web search; defaults to free DuckDuckGo search via `ddgs`.)*
+# Single text query with Markdown + JSON export
+uv run pilgrimage \
+  -q "Plan a 3-day budget Your Name pilgrimage in Tokyo and Hida Takayama" \
+  -m outputs/your_name.md \
+  -o outputs/your_name.json
 
-3. **Run the CLI:**
+# VLM screenshot-to-itinerary mode
+uv run pilgrimage --image screenshot.png -q "2 days budget trip"
+```
 
-   Interactive mode:
-   ```bash
-   uv run pilgrimage
-   ```
+### 3. Run the FastAPI Backend + TypeScript Web UI
 
-   Single query with Markdown + JSON export:
-   ```bash
-   uv run pilgrimage \
-     -q "Plan a 3-day budget Your Name pilgrimage in Tokyo and Hida Takayama" \
-     -m outputs/your_name.md \
-     -o outputs/your_name.json
-   ```
+In terminal 1 (API server on `http://127.0.0.1:8000`):
+```bash
+uv run pilgrimage-api --reload
+```
+
+In terminal 2 (TypeScript Vite dev server on `http://localhost:5173`, proxies `/api` to FastAPI):
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Or build the TypeScript UI once and let FastAPI serve both API and UI on `http://127.0.0.1:8000`:
+```bash
+cd frontend && pnpm build && cd ..
+uv run pilgrimage-api
+```
 
 ## Project Structure
 
@@ -73,36 +66,36 @@ AnimePilgrimageTripPlanner/
 ├── .python-version
 ├── .env.example
 ├── src/anime_pilgrimage/
-│   ├── config.py                  # Pydantic Settings & logging setup
-│   ├── models.py                  # Shared Pydantic v2 models (API/TS-UI ready)
-│   ├── planner.py                 # High-level async AnimePilgrimagePlanner facade
-│   ├── cli.py                     # Rich CLI entry point (`pilgrimage`)
+│   ├── config.py                  # Pydantic Settings & root-relative cache/env resolution
+│   ├── models.py                  # Shared Pydantic v2 models (API + TS UI contract)
+│   ├── planner.py                 # Async AnimePilgrimagePlanner facade (text + VLM image)
+│   ├── api.py                     # FastAPI server (`pilgrimage-api`)
+│   ├── cli.py                     # Rich CLI (`pilgrimage`)
 │   ├── llm/
-│   │   └── openrouter.py          # Shared OpenRouter LLM/VLM client with retries & fallbacks
+│   │   └── openrouter.py          # Shared OpenRouter LLM/VLM client
 │   ├── services/
-│   │   ├── anime_metadata.py      # Jikan API lookup + SQLite cache
+│   │   ├── anime_metadata.py      # Jikan API lookup + similarity validation + SQLite cache
 │   │   ├── geocoder.py            # Nominatim/Photon async geocoder + SQLite cache
-│   │   └── search.py              # DDGS / Tavily search + concurrent trafilatura fetching
+│   │   └── search.py              # DDGS / Tavily search + Shift_JIS-safe trafilatura extraction
 │   ├── components/
-│   │   ├── query_interface.py     # Input validation & normalization
-│   │   ├── query_analyzer.py      # LLM query parsing + rule-based fallback
-│   │   ├── trip_planner.py        # Multi-city clustering, 2-opt TSP, budgets
+│   │   ├── query_interface.py     # Unicode/JP-safe input validation & normalization
+│   │   ├── query_analyzer.py      # OpenRouter structured parsing + rule fallback
+│   │   ├── scene_analyzer.py      # OpenRouter VLM screenshot analyzer
+│   │   ├── trip_planner.py        # Multi-city clustering, 2-opt TSP, Japan transit & budgets
 │   │   └── response_generator.py  # Markdown & JSON itinerary rendering
 │   └── agents/
 │       └── web_crawler.py         # Iterative LangGraph discovery agent
+├── frontend/                      # Vite + React + TypeScript + Leaflet interactive UI
 └── tests/                         # Fast offline pytest suite
 ```
 
-## Development & Testing
+## Testing & Linting
 
 ```bash
-# Run unit & integration tests (offline, mocked external calls)
+# Python tests & lint
 uv run pytest
-
-# Lint with ruff
 uv run ruff check src tests
+
+# TypeScript typecheck & production build
+cd frontend && pnpm typecheck && pnpm build
 ```
-
-## Disclaimer
-
-Travel times, costs, and access details are estimates generated for planning purposes. Always verify opening hours, transit schedules, and local photography etiquette before visiting real-world pilgrimage sites.

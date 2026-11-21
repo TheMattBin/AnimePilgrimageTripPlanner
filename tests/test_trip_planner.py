@@ -99,10 +99,10 @@ def test_intercity_transfer_between_days_is_priced_and_noted():
     assert plan.total_estimated_cost["transportation"] >= 5000
     day2 = plan.daily_itineraries[1]
     assert any("Inter-city transfer" in note for note in day2.notes)
-    # Realistic ~3.5-4h Tokyo->Hida transfer shifts Day 2's first stop past 12:00 (not 09:00)
-    assert day2.total_travel_time >= 200
+    # Realistic ~3h10m Tokyo->Toyama (Shinkansen) + Hida Express shifts Day 2's first stop past 11:00
+    assert day2.total_travel_time >= 180
     first_arrival_hour = int(day2.stops[0].arrival_time.split(":")[0])
-    assert first_arrival_hour >= 12
+    assert first_arrival_hour >= 11
 
 
 def test_two_city_trip_keeps_both_cities_even_when_one_has_more_spots():
@@ -216,11 +216,11 @@ def test_shinkansen_corridors_use_fast_speed_and_uji_starts_before_noon():
     assert nagoya_mode == "shinkansen"
     assert kyoto_mode == "shinkansen"
     assert sendai_mode == "shinkansen"
-    assert hida_mode == "limited express / regional rail"
+    assert hida_mode == "shinkansen + limited express"
     assert nagoya_min < 150  # ~2h08m door-to-door
     assert kyoto_min < 190  # ~2h53m door-to-door
     assert sendai_min < 165  # ~2h27m door-to-door
-    assert hida_min >= 230  # ~4h13m (no Shinkansen to Hida)
+    assert 175 <= hida_min <= 260  # ~3h09m via Toyama Hokuriku Shinkansen + Hida Express
 
     # Full 2-day Tokyo -> Uji trip starts Day 2 before noon (not 14:00)
     spots = [
@@ -404,6 +404,18 @@ def test_very_long_regional_transfer_arriving_after_1500_moves_to_prior_evening(
     plan = TripPlanner().generate_travel_plan(spots, analysis)
     assert plan.daily_itineraries[1].stops[0].arrival_time == "09:00"
     assert any("Evening inter-city transfer" in note for note in plan.daily_itineraries[0].notes)
+
+
+def test_one_shinkansen_end_uses_hybrid_shinkansen_plus_limited_express():
+    """Kyoto->Hita (~480 km, Kyoto on Shinkansen, Hita 57 km from Hakata) takes ~4.5-5h, not 8h."""
+    planner = TripPlanner()
+    kyoto = Coordinates(lat=34.9858, lng=135.7588)
+    hita = Coordinates(lat=33.3213, lng=130.9410)
+    minutes, mode = planner.estimate_travel_leg(
+        planner.calculate_distance(kyoto, hita), start_coord=kyoto, end_coord=hita
+    )
+    assert mode == "shinkansen + limited express"
+    assert 240 <= minutes <= 320  # ~4h44m vs ~8h pure regional rail
 
 
 def test_budget_levels_change_estimated_cost_and_include_lodging():

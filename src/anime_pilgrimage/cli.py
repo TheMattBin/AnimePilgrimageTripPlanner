@@ -102,6 +102,21 @@ async def _run_cli(args: argparse.Namespace) -> int:
         )
 
     async with AnimePilgrimagePlanner(settings=settings) as planner:
+        if args.image:
+            with console.status("Analyzing screenshot with OpenRouter VLM & planning trip..."):
+                response = await planner.process_image_query(
+                    Path(args.image), prompt=args.query or ""
+                )
+
+            _render_response(response)
+            md_target = args.markdown
+            if args.save_md and not md_target and response.travel_plan:
+                slug = _sanitize_filename(response.travel_plan.trip_title)
+                md_target = f"outputs/{slug}_{response.travel_plan.duration_days}d.md"
+
+            _save_outputs(response, json_path=args.output, markdown_path=md_target)
+            return 0 if response.response_type != "error" else 1
+
         if args.query:
             with console.status("Planning your anime pilgrimage..."):
                 response = await planner.process_query(args.query)
@@ -129,7 +144,12 @@ def build_parser() -> argparse.ArgumentParser:
         "-q",
         "--query",
         type=str,
-        help="Single pilgrimage query to process non-interactively.",
+        help="Single pilgrimage query to process non-interactively (or optional preferences with --image).",
+    )
+    parser.add_argument(
+        "--image",
+        type=str,
+        help="Path to an anime screenshot or location photo for VLM-assisted pilgrimage planning.",
     )
     parser.add_argument(
         "-o",

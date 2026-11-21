@@ -80,6 +80,33 @@ class QueryAnalysis(BaseModel):
     analysis_source: Literal["llm", "rule_based", "hybrid"] = Field(
         default="llm", description="How the query analysis was produced"
     )
+    seed_queries: list[str] = Field(
+        default_factory=list,
+        description="Optional high-priority search queries seeded from VLM scene analysis",
+    )
+
+
+class SceneAnalysis(BaseModel):
+    """Structured VLM analysis of an uploaded anime screenshot or location photo."""
+
+    identified_anime: str = Field(default="", description="Identified anime title (English/romaji)")
+    japanese_title: str = Field(default="", description="Official Japanese anime title if known")
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0, description="VLM identification confidence")
+    landmark_guess: str = Field(default="", description="Likely real-world landmark name")
+    japanese_landmark: str = Field(
+        default="", description="Japanese landmark name or readable signage text"
+    )
+    city_or_region: str = Field(default="", description="Likely Japanese city, ward, or prefecture")
+    visual_clues: list[str] = Field(
+        default_factory=list, description="Visual details (signs, architecture, train lines, lighting)"
+    )
+    camera_and_framing_tips: str = Field(
+        default="", description="Tips for recreating the camera angle and framing in real life"
+    )
+    suggested_search_queries: list[str] = Field(
+        default_factory=list, description="Targeted pilgrimage search queries from visual clues"
+    )
+    notes: str = Field(default="", description="Additional context or uncertainty notes")
 
 
 class PilgrimageLocation(BaseModel):
@@ -177,4 +204,5 @@ class GeneratedResponse(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     travel_plan: TravelPlan | None = Field(default=None)
     locations: list[PilgrimageLocation] = Field(default_factory=list)
+    scene_analysis: SceneAnalysis | None = Field(default=None)
     metadata: dict[str, Any] = Field(default_factory=dict)

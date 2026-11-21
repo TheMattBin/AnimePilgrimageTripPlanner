@@ -8,6 +8,7 @@ from .models import (
     GeneratedResponse,
     PilgrimageLocation,
     QueryAnalysis,
+    SceneAnalysis,
     ScheduledStop,
     TravelPlan,
     TripPreferences,
@@ -15,7 +16,7 @@ from .models import (
 )
 from .planner import AnimePilgrimagePlanner
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "AnimeIdentification",
@@ -25,6 +26,7 @@ __all__ = [
     "GeneratedResponse",
     "PilgrimageLocation",
     "QueryAnalysis",
+    "SceneAnalysis",
     "ScheduledStop",
     "Settings",
     "TravelPlan",

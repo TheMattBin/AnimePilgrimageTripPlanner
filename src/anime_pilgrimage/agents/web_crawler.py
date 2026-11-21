@@ -134,6 +134,9 @@ class AgenticWebCrawler:
         queries: list[str] = []
         region_hint = " ".join(analysis.locations_mentioned[:2])
 
+        if iteration == 0 and analysis.seed_queries:
+            queries.extend(q.strip() for q in analysis.seed_queries if q.strip())
+
         for anime in analysis.identified_anime:
             title = anime.anime_title
             jp = anime.japanese_title

@@ -177,3 +177,5 @@ cython_debug/
 *.pdf
 *.html
 outputs/
+node_modules/
+frontend/dist/

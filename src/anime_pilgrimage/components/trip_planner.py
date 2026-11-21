@@ -59,6 +59,7 @@ class TripPlanner:
         ("Morioka", 39.7016, 141.1365),
         ("Shin-Aomori", 40.8274, 140.6935),
         ("Nagano", 36.6431, 138.1886),
+        ("Toyama", 36.7016, 137.2133),
         ("Kanazawa", 36.5781, 136.6481),
         ("Niigata", 37.9120, 139.0617),
     )
@@ -153,14 +154,22 @@ class TripPlanner:
         c = 2 * math.asin(min(1.0, math.sqrt(a)))
         return 6371.0 * c
 
-    def _is_near_shinkansen_hub(self, coord: Coordinates | None) -> bool:
+    def _nearest_shinkansen_hub(self, coord: Coordinates | None) -> tuple[Coordinates, float] | None:
         if coord is None:
-            return False
-        return any(
-            self.calculate_distance(coord, Coordinates(lat=lat, lng=lng))
-            <= self.SHINKANSEN_HUB_RADIUS_KM
-            for _, lat, lng in self.SHINKANSEN_HUBS
-        )
+            return None
+        best_coord: Coordinates | None = None
+        best_dist = float("inf")
+        for _, lat, lng in self.SHINKANSEN_HUBS:
+            hub = Coordinates(lat=lat, lng=lng)
+            dist = self.calculate_distance(coord, hub)
+            if dist < best_dist:
+                best_dist = dist
+                best_coord = hub
+        return (best_coord, best_dist) if best_coord is not None else None
+
+    def _is_near_shinkansen_hub(self, coord: Coordinates | None) -> bool:
+        nearest = self._nearest_shinkansen_hub(coord)
+        return nearest is not None and nearest[1] <= self.SHINKANSEN_HUB_RADIUS_KM
 
     def estimate_travel_leg(
         self,
@@ -183,9 +192,9 @@ class TripPlanner:
                 )
                 return minutes, "rail"
 
-            both_shinkansen = self._is_near_shinkansen_hub(
-                start_coord
-            ) and self._is_near_shinkansen_hub(end_coord)
+            start_shinkansen = self._is_near_shinkansen_hub(start_coord)
+            end_shinkansen = self._is_near_shinkansen_hub(end_coord)
+            both_shinkansen = start_shinkansen and end_shinkansen
 
             if distance_km > self.FLIGHT_ANY_CORRIDOR_KM or (
                 distance_km >= self.FLIGHT_OFF_SHINKANSEN_KM and not both_shinkansen
@@ -197,6 +206,26 @@ class TripPlanner:
             if both_shinkansen:
                 minutes = round(distance_km / self.TRAVEL_SPEEDS_KMH["shinkansen"] * 60) + 25
                 return minutes, "shinkansen"
+
+            # Hybrid Shinkansen trunk + regional limited-express last mile when exactly one
+            # endpoint is on the Shinkansen network (e.g., Kyoto -> Hakata -> Hita).
+            if (start_shinkansen ^ end_shinkansen) and start_coord and end_coord:
+                hub_end = start_coord if start_shinkansen else end_coord
+                off_end = end_coord if start_shinkansen else start_coord
+                nearest = self._nearest_shinkansen_hub(off_end)
+                if nearest is not None:
+                    transfer_hub, last_mile_km = nearest
+                    trunk_km = self.calculate_distance(hub_end, transfer_hub)
+                    if (
+                        trunk_km >= 80.0
+                        and last_mile_km < distance_km * 0.6
+                        and (trunk_km + last_mile_km) <= distance_km * 1.45
+                    ):
+                        trunk_min = round(trunk_km / self.TRAVEL_SPEEDS_KMH["shinkansen"] * 60)
+                        last_mile_min = round(
+                            last_mile_km / self.TRAVEL_SPEEDS_KMH["regional_rail"] * 60
+                        )
+                        return trunk_min + last_mile_min + 40, "shinkansen + limited express"
 
             minutes = round(distance_km / self.TRAVEL_SPEEDS_KMH["regional_rail"] * 60) + 35
             return minutes, "limited express / regional rail"

@@ -10,10 +10,10 @@ from anime_pilgrimage.agents.web_crawler import AgenticWebCrawler
 from anime_pilgrimage.components.query_analyzer import QueryAnalyzer
 from anime_pilgrimage.components.query_interface import QueryInterface
 from anime_pilgrimage.components.response_generator import ResponseGenerator
-from anime_pilgrimage.components.scene_analyzer import SceneAnalyzer
+from anime_pilgrimage.components.scene_analyzer import ImageValidationError, SceneAnalyzer
 from anime_pilgrimage.components.trip_planner import TripPlanner
 from anime_pilgrimage.config import Settings, get_settings
-from anime_pilgrimage.llm.openrouter import OpenRouterClient
+from anime_pilgrimage.llm.openrouter import OpenRouterClient, OpenRouterError
 from anime_pilgrimage.models import (
     AnimeIdentification,
     GeneratedResponse,
@@ -27,6 +27,15 @@ from anime_pilgrimage.services.geocoder import GeocoderService
 from anime_pilgrimage.services.search import WebSearchService
 
 logger = logging.getLogger(__name__)
+
+# Below this VLM confidence, ask the user to confirm the anime instead of planning a full
+# trip around what may be a wrong guess (free-tier VLMs misidentify scenes often).
+MIN_SCENE_CONFIDENCE = 0.5
+
+# Generic text returned to clients for unexpected failures; details go to the server log only.
+_UNEXPECTED_ERROR_MESSAGE = (
+    "An unexpected error occurred while planning your trip. Check the server logs for details."
+)
 
 
 class AnimePilgrimagePlanner:
@@ -114,11 +123,9 @@ class AnimePilgrimagePlanner:
 
             return await self._plan_from_analysis(query_analysis)
 
-        except Exception as exc:
+        except Exception:
             logger.exception("Unhandled error while processing query")
-            return self.response_generator.generate_error_response(
-                f"An unexpected error occurred: {exc}"
-            )
+            return self.response_generator.generate_error_response(_UNEXPECTED_ERROR_MESSAGE)
 
     async def process_image_query(
         self,
@@ -138,7 +145,19 @@ class AnimePilgrimagePlanner:
                 hint=prompt,
             )
 
-            if not scene.identified_anime.strip():
+            guessed_title = scene.identified_anime.strip()
+            if not guessed_title or scene.confidence < MIN_SCENE_CONFIDENCE:
+                if guessed_title:
+                    question = (
+                        f"This might be from {guessed_title}, but the vision model isn't sure "
+                        f"(confidence {scene.confidence:.2f}). Is that right? If so, ask for a "
+                        f'plan by name, e.g. "Plan a 2-day {guessed_title} trip".'
+                    )
+                else:
+                    question = (
+                        "I couldn't confidently identify the anime from this image. "
+                        "Which anime is this screenshot from?"
+                    )
                 fallback_query = UserQuery(
                     original_text=prompt or "[uploaded anime screenshot]",
                     normalized_text=prompt or "[uploaded anime screenshot]",
@@ -149,10 +168,7 @@ class AnimePilgrimagePlanner:
                     original_query=fallback_query,
                     identified_anime=[],
                     locations_mentioned=[scene.city_or_region] if scene.city_or_region else [],
-                    disambiguation_questions=[
-                        "I couldn't confidently identify the anime from this image. "
-                        "Which anime is this screenshot from?"
-                    ],
+                    disambiguation_questions=[question],
                     analysis_confidence=scene.confidence,
                     analysis_source="hybrid",
                 )
@@ -189,14 +205,14 @@ class AnimePilgrimagePlanner:
                     original_text=synthetic_text,
                     normalized_text=synthetic_text,
                     query_type="image_pilgrimage",
-                    confidence=max(0.5, scene.confidence),
+                    confidence=scene.confidence,
                     metadata={"source": "vlm_screenshot"},
                 ),
                 identified_anime=[
                     AnimeIdentification(
-                        anime_title=scene.identified_anime.strip(),
+                        anime_title=guessed_title,
                         japanese_title=scene.japanese_title.strip(),
-                        confidence=max(0.5, scene.confidence),
+                        confidence=scene.confidence,
                         keywords=scene.visual_clues[:6],
                         context=synthetic_text,
                         disambiguation_needed=False,
@@ -205,7 +221,7 @@ class AnimePilgrimagePlanner:
                 extracted_keywords=scene.visual_clues[:8],
                 locations_mentioned=locations_mentioned,
                 trip_preferences=trip_prefs,
-                analysis_confidence=round(max(0.5, scene.confidence), 3),
+                analysis_confidence=round(scene.confidence, 3),
                 analysis_source="hybrid",
                 seed_queries=seed_queries,
             )
@@ -218,9 +234,13 @@ class AnimePilgrimagePlanner:
                 }
             )
 
-        except Exception as exc:
-            logger.exception("Unhandled error while processing image query")
+        except (ImageValidationError, OpenRouterError) as exc:
+            # Our own user-facing messages (bad upload, missing key, unreadable VLM reply)
+            logger.warning("Image query failed: %s", exc)
             return self.response_generator.generate_error_response(str(exc))
+        except Exception:
+            logger.exception("Unhandled error while processing image query")
+            return self.response_generator.generate_error_response(_UNEXPECTED_ERROR_MESSAGE)
 
     async def _plan_from_analysis(self, query_analysis: QueryAnalysis) -> GeneratedResponse:
         locations = await self.crawler.crawl_anime_locations(query_analysis)

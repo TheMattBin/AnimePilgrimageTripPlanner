@@ -385,18 +385,49 @@ class OpenRouterClient:
             }
         )
 
-        raw = await self._chat_completion(
-            messages,
-            model=model or self.settings.openrouter_vlm_model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            json_mode=response_model is not None,
-        )
+        chosen_model = model or self.settings.openrouter_vlm_model
         if response_model is None:
-            return raw
+            return await self._chat_completion(
+                messages,
+                model=chosen_model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                json_mode=False,
+            )
 
-        payload = extract_json_payload(raw)
-        return response_model.model_validate(payload)
+        # Free-tier VLMs often answer in prose; ask once for a corrected JSON object
+        # and surface persistent failures as OpenRouterError so callers can handle them.
+        last_error: Exception | None = None
+        for attempt in range(1, 3):
+            raw = await self._chat_completion(
+                messages,
+                model=chosen_model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                json_mode=True,
+            )
+            try:
+                return response_model.model_validate(extract_json_payload(raw))
+            except (ValueError, ValidationError) as exc:
+                last_error = exc
+                logger.warning(
+                    "VLM structured output validation failed (attempt %d/2): %s", attempt, exc
+                )
+                messages.append({"role": "assistant", "content": raw})
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Your previous output was not valid JSON for the schema: {exc}. "
+                            "Reply with ONLY the corrected JSON object."
+                        ),
+                    }
+                )
+
+        raise OpenRouterError(
+            "The vision model did not return a readable scene analysis after 2 attempts. "
+            "Try again, or set OPENROUTER_VLM_MODEL to a different vision-capable model."
+        ) from last_error
 
     async def aclose(self) -> None:
         """Close the underlying HTTP client if owned by this instance."""

@@ -188,3 +188,16 @@ async def test_all_ambiguous_matches_still_trigger_clarification():
         response = await planner.process_query("Fate pilgrimage in Japan")
         assert response.response_type == "clarification"
         assert response.disambiguation_needed is True
+
+
+async def test_unexpected_errors_are_logged_not_returned_to_clients():
+    settings = Settings(openrouter_api_key="")
+    async with AnimePilgrimagePlanner(settings=settings, metadata_service=AsyncMock()) as planner:
+        planner.crawler.crawl_anime_locations = AsyncMock(
+            side_effect=RuntimeError("db at /srv/secret/cache.sqlite3 is locked")
+        )
+        response = await planner.process_query("Plan a 1-day Your Name trip in Tokyo")
+
+    assert response.response_type == "error"
+    assert "/srv/secret" not in response.model_dump_json()
+    assert "server logs" in response.summary

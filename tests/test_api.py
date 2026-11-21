@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
 
-from anime_pilgrimage.api import create_app
+from anime_pilgrimage.api import MAX_UPLOAD_REQUEST_BYTES, create_app
+from anime_pilgrimage.components.scene_analyzer import MAX_IMAGE_BYTES
 from anime_pilgrimage.config import Settings
+from anime_pilgrimage.llm.openrouter import OpenRouterClient
 from anime_pilgrimage.models import (
     Coordinates,
     PilgrimageLocation,
@@ -90,3 +93,64 @@ async def test_api_scene_analyze_validates_uploads_and_returns_scene():
                 payload = ok.json()
                 assert payload["identified_anime"] == "Bocchi the Rock!"
                 assert payload["landmark_guess"] == "Shimokitazawa Shelter"
+
+
+async def test_api_scene_analyze_returns_503_when_vlm_reply_is_unreadable():
+    """Regression: a prose (non-JSON) VLM reply used to escape as a plain ValueError -> HTTP 500."""
+    prose = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content="This looks like the Your Name stairs!"))]
+    )
+    create = AsyncMock(return_value=prose)
+    settings = Settings(openrouter_api_key="sk-or-test")
+    llm = OpenRouterClient(
+        settings=settings,
+        client=SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))),  # type: ignore[arg-type]
+    )
+
+    async with AnimePilgrimagePlanner(
+        settings=settings, llm_client=llm, metadata_service=AsyncMock()
+    ) as planner:
+        app = create_app(settings=settings, planner=planner)
+        async with app.router.lifespan_context(app):
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                res = await client.post(
+                    "/api/scene/analyze",
+                    files={"image": ("scene.png", _PNG_BYTES, "image/png")},
+                )
+
+    assert res.status_code == 503
+    assert "vision model" in res.json()["detail"]
+    assert create.await_count == 2  # one corrective retry before giving up
+
+
+async def test_api_rejects_oversized_uploads_with_413_before_calling_vlm():
+    fake_llm = AsyncMock()
+    fake_llm.is_configured = True
+    settings = Settings(openrouter_api_key="sk-or-test")
+
+    async with AnimePilgrimagePlanner(
+        settings=settings, llm_client=fake_llm, metadata_service=AsyncMock()
+    ) as planner:
+        app = create_app(settings=settings, planner=planner)
+        async with app.router.lifespan_context(app):
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                # Just over the image limit: passes the Content-Length guard, stopped by the read cap
+                just_over = _PNG_BYTES + b"0" * (MAX_IMAGE_BYTES + 1 - len(_PNG_BYTES))
+                capped = await client.post(
+                    "/api/scene/analyze",
+                    files={"image": ("big.png", just_over, "image/png")},
+                )
+                # Far over: rejected from Content-Length before multipart parsing. Without the
+                # guard this malformed multipart body would fail validation with 422 instead.
+                guarded = await client.post(
+                    "/api/plan/from-image",
+                    content=b"0" * (MAX_UPLOAD_REQUEST_BYTES + 1),
+                    headers={"content-type": "multipart/form-data; boundary=xyz"},
+                )
+
+    assert capped.status_code == 413
+    assert guarded.status_code == 413
+    assert "maximum allowed size" in guarded.json()["detail"]
+    fake_llm.analyze_image.assert_not_awaited()

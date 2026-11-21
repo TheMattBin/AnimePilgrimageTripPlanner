@@ -12,7 +12,7 @@ from openai import BadRequestError
 from pydantic import BaseModel
 
 from anime_pilgrimage.config import Settings
-from anime_pilgrimage.llm.openrouter import OpenRouterClient, extract_json_payload
+from anime_pilgrimage.llm.openrouter import OpenRouterClient, OpenRouterError, extract_json_payload
 
 
 class _SampleSchema(BaseModel):
@@ -114,3 +114,42 @@ async def test_unconfigured_client_raises_clear_error():
     assert client.is_configured is False
     with pytest.raises(Exception, match="OPENROUTER_API_KEY"):
         await client.generate_text("hello")
+
+
+def _mock_openai_with(create: AsyncMock) -> SimpleNamespace:
+    return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+
+
+async def test_analyze_image_retries_once_when_vlm_answers_in_prose():
+    create = AsyncMock(
+        side_effect=[
+            _fake_completion("Looks like the Suga Shrine stairs from Your Name!"),
+            _fake_completion('{"title": "Your Name", "days": 1}'),
+        ]
+    )
+    client = OpenRouterClient(
+        settings=Settings(openrouter_api_key="sk-or-test"), client=_mock_openai_with(create)  # type: ignore[arg-type]
+    )
+
+    result = await client.analyze_image(
+        "data:image/png;base64,AAAA", "Identify this scene", response_model=_SampleSchema
+    )
+
+    assert result == _SampleSchema(title="Your Name", days=1)
+    assert create.await_count == 2
+    retry_messages = create.await_args_list[1].kwargs["messages"]
+    assert retry_messages[-2]["role"] == "assistant"
+    assert "corrected JSON" in retry_messages[-1]["content"]
+
+
+async def test_analyze_image_raises_openrouter_error_after_two_unreadable_replies():
+    create = AsyncMock(return_value=_fake_completion("I think this is from Your Name."))
+    client = OpenRouterClient(
+        settings=Settings(openrouter_api_key="sk-or-test"), client=_mock_openai_with(create)  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(OpenRouterError, match="vision model"):
+        await client.analyze_image(
+            "data:image/png;base64,AAAA", "Identify this scene", response_model=_SampleSchema
+        )
+    assert create.await_count == 2

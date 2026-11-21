@@ -111,3 +111,46 @@ async def test_planner_process_image_query_runs_full_pipeline():
     assert response.travel_plan is not None
     assert response.travel_plan.duration_days == 1
     assert response.metadata.get("input_mode") == "image"
+
+
+async def test_low_confidence_scene_asks_to_confirm_instead_of_planning():
+    fake_llm = AsyncMock()
+    fake_llm.is_configured = True
+    fake_llm.analyze_image.return_value = SceneAnalysis(
+        identified_anime="Your Name",
+        japanese_title="君の名は。",
+        confidence=0.2,
+        city_or_region="Tokyo",
+    )
+
+    settings = Settings(openrouter_api_key="sk-or-test")
+    async with AnimePilgrimagePlanner(
+        settings=settings, llm_client=fake_llm, metadata_service=AsyncMock()
+    ) as planner:
+        planner.crawler.crawl_anime_locations = AsyncMock(return_value=[])
+        response = await planner.process_image_query(_PNG_HEADER, content_type="image/png")
+
+    assert response.response_type == "clarification"
+    assert "Your Name" in response.disambiguation_questions[0]
+    assert response.confidence == 0.2  # real VLM confidence, not floored to 0.5
+    assert response.scene_analysis is not None
+    planner.crawler.crawl_anime_locations.assert_not_awaited()
+
+
+async def test_image_query_errors_keep_user_messages_but_hide_internal_details():
+    fake_llm = AsyncMock()
+    fake_llm.is_configured = True
+
+    settings = Settings(openrouter_api_key="sk-or-test")
+    async with AnimePilgrimagePlanner(
+        settings=settings, llm_client=fake_llm, metadata_service=AsyncMock()
+    ) as planner:
+        empty = await planner.process_image_query(b"", content_type="image/png")
+        fake_llm.analyze_image.side_effect = RuntimeError("upstream proxy 10.0.0.5 refused")
+        internal = await planner.process_image_query(_PNG_HEADER, content_type="image/png")
+
+    assert empty.response_type == "error"
+    assert "empty" in empty.summary
+    assert internal.response_type == "error"
+    assert "10.0.0.5" not in internal.model_dump_json()
+    assert "server logs" in internal.summary

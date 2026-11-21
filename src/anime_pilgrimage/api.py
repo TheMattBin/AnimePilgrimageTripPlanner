@@ -10,17 +10,35 @@ from typing import Annotated
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from anime_pilgrimage import __version__
-from anime_pilgrimage.components.scene_analyzer import ImageValidationError
+from anime_pilgrimage.components.scene_analyzer import (
+    MAX_IMAGE_BYTES,
+    ImageValidationError,
+    validate_and_encode_image_bytes,
+)
 from anime_pilgrimage.config import Settings, _find_project_root, configure_logging, get_settings
 from anime_pilgrimage.llm.openrouter import OpenRouterError
 from anime_pilgrimage.models import GeneratedResponse, SceneAnalysis
 from anime_pilgrimage.planner import AnimePilgrimagePlanner
 
 logger = logging.getLogger(__name__)
+
+_UPLOAD_PATHS = frozenset({"/api/scene/analyze", "/api/plan/from-image"})
+# Image limit plus headroom for multipart boundaries and the small text form fields
+MAX_UPLOAD_REQUEST_BYTES = MAX_IMAGE_BYTES + 1024 * 1024
+_TOO_LARGE_DETAIL = f"Image exceeds the maximum allowed size of {MAX_IMAGE_BYTES // (1024 * 1024)} MB."
+
+
+async def _read_upload(image: UploadFile) -> bytes:
+    """Read at most MAX_IMAGE_BYTES + 1 so oversized uploads are never buffered in memory."""
+    data = await image.read(MAX_IMAGE_BYTES + 1)
+    if len(data) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail=_TOO_LARGE_DETAIL)
+    return data
 
 
 class PlanRequest(BaseModel):
@@ -70,6 +88,16 @@ def create_app(
         lifespan=lifespan,
     )
 
+    # Reject oversized uploads from Content-Length before the multipart parser spools the
+    # body. Registered before CORS so CORS stays outermost and the 413 keeps CORS headers.
+    @app.middleware("http")
+    async def limit_upload_size(request: Request, call_next):  # type: ignore[no-untyped-def]
+        if request.method == "POST" and request.url.path in _UPLOAD_PATHS:
+            declared = request.headers.get("content-length", "")
+            if declared.isdigit() and int(declared) > MAX_UPLOAD_REQUEST_BYTES:
+                return JSONResponse(status_code=413, content={"detail": _TOO_LARGE_DETAIL})
+        return await call_next(request)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
@@ -109,7 +137,7 @@ def create_app(
         hint: Annotated[str, Form(description="Optional hint or context")] = "",
     ) -> SceneAnalysis:
         active_planner = _get_planner(request)
-        image_bytes = await image.read()
+        image_bytes = await _read_upload(image)
         try:
             return await active_planner.analyze_scene(
                 image_bytes,
@@ -131,13 +159,9 @@ def create_app(
         ] = "",
     ) -> GeneratedResponse:
         active_planner = _get_planner(request)
-        image_bytes = await image.read()
+        image_bytes = await _read_upload(image)
         try:
             # Validate image early so client receives clean HTTP 400 on bad uploads
-            from anime_pilgrimage.components.scene_analyzer import (
-                validate_and_encode_image_bytes,
-            )
-
             validate_and_encode_image_bytes(
                 image_bytes, content_type=image.content_type, filename=image.filename
             )

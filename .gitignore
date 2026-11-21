@@ -176,3 +176,8 @@ cython_debug/
 .claude/
 *.pdf
 *.html
+# Vite's entry point must be tracked or the frontend cannot build from a fresh clone
+!frontend/index.html
+outputs/
+node_modules/
+frontend/dist/

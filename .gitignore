@@ -176,3 +176,4 @@ cython_debug/
 .claude/
 *.pdf
 *.html
+outputs/
